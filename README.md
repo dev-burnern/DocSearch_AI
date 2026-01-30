@@ -70,7 +70,7 @@
 
 ### 1. 저장소 클론
 ```bash
-git clone https://github.com/your-org/docsearch-ai.git
+git clone https://github.com/dev-burnern/docsearch-ai.git
 cd docsearch-ai
 ```
 
