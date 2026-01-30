@@ -1,0 +1,67 @@
+# ============================================================
+# DocSearch AI - API Server Dockerfile
+# ============================================================
+
+FROM nvidia/cuda:12.4.0-runtime-ubuntu22.04
+
+LABEL maintainer="DocSearch AI Team"
+LABEL description="Document Search RAG API Server"
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-venv \
+    python3.11-dev \
+    python3-pip \
+    build-essential \
+    curl \
+    git \
+    # For PDF processing
+    poppler-utils \
+    tesseract-ocr \
+    tesseract-ocr-kor \
+    # For image processing
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    # Cleanup
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir --upgrade pip && \
+    pip3 install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY app ./app
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
+
+# Environment
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+ENV TRANSFORMERS_CACHE=/root/.cache/huggingface
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Expose port
+EXPOSE 8000
+
+# Run as non-root (commented out for GPU access)
+# USER appuser
+
+# Start server
+CMD ["python3", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
