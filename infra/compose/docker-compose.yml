@@ -1,0 +1,76 @@
+services:
+  frontend:
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "5173:5173"
+
+  gateway:
+    image: nginx:alpine
+    depends_on:
+      - frontend
+      - api
+    ports:
+      - "8080:80"
+    volumes:
+      - ../nginx/default.conf:/etc/nginx/nginx.conf:ro
+
+  api:
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    environment:
+      APP_NAME: DocSearch AI
+      APP_ENV: development
+      DEBUG: "false"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+      - qdrant
+      - minio
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    command: python -m backend.app.worker
+    depends_on:
+      - api
+      - redis
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: docsearch
+      POSTGRES_PASSWORD: docsearch
+      POSTGRES_DB: docsearch
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.6
+    ports:
+      - "6333:6333"
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  llm:
+    image: vllm/vllm-openai:latest
+    ports:
+      - "8100:8000"
