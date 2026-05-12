@@ -6,15 +6,15 @@ const { Paragraph, Title } = Typography;
 const panels = [
   {
     title: "Upload",
-    description: "Document ingestion workflow will land here.",
+    description: "Document ingestion surfaces will land here.",
   },
   {
     title: "Search",
-    description: "Retrieval and ranking results surface will live here.",
+    description: "Retrieval and ranking flows will land here.",
   },
   {
     title: "Chat",
-    description: "Cited RAG responses will be shown here.",
+    description: "Cited answer experiences will land here.",
   },
 ];
 
@@ -31,10 +31,10 @@ export default function App() {
       >
         <Space direction="vertical" size={0}>
           <Title level={4} style={{ margin: 0 }}>
-            DocSearch AI V2
+            DocSearch AI
           </Title>
           <Paragraph type="secondary" style={{ margin: 0 }}>
-            On-premise document search and RAG shell
+            On-premise document search and RAG scaffold
           </Paragraph>
         </Space>
       </Header>

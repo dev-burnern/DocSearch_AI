@@ -17,14 +17,14 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, str]:
         return {
             "status": "healthy",
-            "service": "docsearch-ai-v2",
+            "service": "docsearch-ai",
         }
 
     @app.get("/ready")
     async def ready() -> dict[str, str]:
         return {
             "status": "ready",
-            "service": "docsearch-ai-v2",
+            "service": "docsearch-ai",
         }
 
     return app

@@ -1,1 +1,1 @@
-
+"""DocSearch AI backend package."""
