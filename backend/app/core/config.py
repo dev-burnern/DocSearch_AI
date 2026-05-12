@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 
 class Settings(BaseModel):
-    app_name: str = os.getenv("APP_NAME", "DocSearch AI V2")
+    app_name: str = os.getenv("APP_NAME", "DocSearch AI")
     app_env: str = os.getenv("APP_ENV", "development")
     debug: bool = os.getenv("DEBUG", "false").lower() == "true"
 
