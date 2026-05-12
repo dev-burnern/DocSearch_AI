@@ -305,6 +305,10 @@ $RECYCLE.BIN/
 uploads/
 documents/
 files/
+!backend/app/documents/
+!backend/app/documents/**
+!backend/tests/documents/
+!backend/tests/documents/**
 
 # Model cache
 models/
