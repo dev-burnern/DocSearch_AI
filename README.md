@@ -39,4 +39,4 @@ Local endpoints:
 
 ## Current Scope
 
-The current scaffold establishes service boundaries, health endpoints, local runtime config, and CI. Authentication, document ingestion, indexing, retrieval, and cited chat flows will land in follow-up branches.
+The current baseline establishes service boundaries, health endpoints, local runtime config, CI, and API key based workspace context. Document ingestion, indexing, retrieval, and cited chat flows will land in follow-up branches.
