@@ -1,0 +1,64 @@
+services:
+  frontend-v2:
+    build:
+      context: ../../frontend-v2
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+
+  nginx-v2:
+    image: nginx:alpine
+    depends_on:
+      - frontend-v2
+      - api-v2
+    ports:
+      - "8080:80"
+    volumes:
+      - ../nginx/default.v2.conf:/etc/nginx/nginx.conf:ro
+
+  api-v2:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    depends_on:
+      - postgres-v2
+      - redis-v2
+      - qdrant-v2
+      - minio-v2
+
+  worker-v2:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    depends_on:
+      - api-v2
+      - redis-v2
+
+  postgres-v2:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+
+  redis-v2:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+
+  qdrant-v2:
+    image: qdrant/qdrant:v1.12.6
+    ports:
+      - "6433:6333"
+
+  minio-v2:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "9100:9000"
+      - "9101:9001"
+
+  vllm-v2:
+    image: vllm/vllm-openai:latest
+    ports:
+      - "8100:8000"
