@@ -30,10 +30,10 @@ jobs:
       - name: Install backend test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install fastapi httpx pytest pydantic uvicorn
+          pip install -r backend/requirements.txt httpx pytest
 
-      - name: Run backend bootstrap tests
-        run: python -m pytest backend/tests/test_bootstrap.py -q
+      - name: Run backend tests
+        run: python -m pytest backend/tests -q
 
   frontend:
     runs-on: ubuntu-latest
