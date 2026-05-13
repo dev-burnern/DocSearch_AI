@@ -13,6 +13,7 @@ class ChatCitation(BaseModel):
     filename: str
     chunk_index: int
     score: float
+    rerank_score: float | None = None
     snippet: str
 
 

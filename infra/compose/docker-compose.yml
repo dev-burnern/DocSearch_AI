@@ -30,6 +30,11 @@ services:
       LLM_MAX_TOKENS: "1024"
       LLM_TEMPERATURE: "0.2"
       CHAT_RETRIEVAL_LIMIT: "5"
+      CHAT_RERANK_TOP_K: "5"
+      RERANKER_BACKEND: score
+      RERANKER_BASE_URL: http://reranker:8001/v1
+      RERANKER_MODEL: BAAI/bge-reranker-v2-m3
+      RERANKER_TIMEOUT_SECONDS: "10.0"
     ports:
       - "8000:8000"
     depends_on:
