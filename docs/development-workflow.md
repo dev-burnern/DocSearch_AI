@@ -1,19 +1,19 @@
-# DocSearch AI Development Workflow
+# DocSearch AI 개발 워크플로우
 
-## Branch Model
+## 브랜치 모델
 
 - `main`
-  - preserves the original V1 prototype
-  - release-only branch
-  - no direct feature work
+  - 기존 V1 프로토타입을 보존합니다.
+  - 릴리스 기준 브랜치로만 사용합니다.
+  - 직접 기능 개발을 진행하지 않습니다.
 - `develop`
-  - integration branch for the rebuild
-  - every new feature branch starts from `develop`
-  - reviewed changes merge back into `develop`
+  - 재구축 작업의 통합 브랜치입니다.
+  - 모든 기능 브랜치는 `develop`에서 시작합니다.
+  - 리뷰가 끝난 변경 사항은 `develop`으로 병합합니다.
 
-## Branch Naming
+## 브랜치 이름 규칙
 
-Use a type prefix for every working branch.
+작업 브랜치는 항상 타입 접두사를 사용합니다.
 
 - `feat/<scope>`
 - `fix/<scope>`
@@ -22,7 +22,7 @@ Use a type prefix for every working branch.
 - `refactor/<scope>`
 - `test/<scope>`
 
-Examples:
+예시:
 
 - `chore/workflow`
 - `feat/scaffold`
@@ -31,68 +31,68 @@ Examples:
 - `feat/retrieval`
 - `fix/search-filter`
 
-## PR Rules
+## PR 규칙
 
-- Every PR targets `develop`
-- `main` only receives reviewed integration from `develop`
-- One PR should contain one concern only
-- Keep PRs small enough to review in one sitting
-- Prefer stacked PRs when the next slice depends on the previous one
+- 모든 PR의 대상 브랜치는 `develop`입니다.
+- `main`은 검토된 통합 결과만 받습니다.
+- 하나의 PR에는 하나의 관심사만 담습니다.
+- 한 번에 리뷰할 수 있을 정도로 PR을 작게 유지합니다.
+- 다음 작업이 이전 작업에 의존하면 스택형 PR을 선호합니다.
 
-Recommended size:
+권장 크기:
 
-- under 400 changed lines when practical
-- under 10 files when practical
-- split early when infra, API, storage, and UI start mixing
+- 가능하면 변경 라인 400줄 이하
+- 가능하면 변경 파일 10개 이하
+- 인프라, API, 저장소, UI 변경이 섞이기 시작하면 일찍 분리
 
-## Commit Rules
+## 커밋 규칙
 
-Use conventional commits:
+커밋 메시지는 conventional commits 형식을 사용하되, 설명은 한글로 작성합니다.
 
-- `feat(scope): summary`
-- `fix(scope): summary`
-- `chore(scope): summary`
-- `docs(scope): summary`
-- `refactor(scope): summary`
-- `test(scope): summary`
+- `feat(scope): 요약`
+- `fix(scope): 요약`
+- `chore(scope): 요약`
+- `docs(scope): 요약`
+- `refactor(scope): 요약`
+- `test(scope): 요약`
 
-Examples:
+예시:
 
-- `feat(scaffold): add backend bootstrap`
-- `feat(auth): add api key validation`
-- `chore(infra): replace runtime layout and ci`
-- `docs(scaffold): refresh repository overview`
+- `feat(scaffold): 백엔드 기준선 추가`
+- `feat(auth): API Key 검증 추가`
+- `chore(infra): 런타임 구조와 CI 재정비`
+- `docs(scaffold): 저장소 개요 갱신`
 
-Each commit should do one thing:
+각 커밋은 한 가지 일만 합니다.
 
-1. add a failing test
-2. add the minimal implementation
-3. refactor without changing behavior
-4. update docs or config
+1. 실패하는 테스트 추가
+2. 최소 구현 추가
+3. 동작 변경 없는 리팩터링
+4. 동작 변경에 맞춘 문서 또는 설정 갱신
 
-## Merge Rules
+## 병합 규칙
 
-- feature branches merge into `develop` after review
-- use linear history where practical
-- avoid force-pushing after review starts unless the branch is still private
-- prefer follow-up commits over rewriting reviewed history
+- 기능 브랜치는 리뷰 후 `develop`으로 병합합니다.
+- 가능하면 선형 히스토리를 유지합니다.
+- 리뷰가 시작된 뒤에는 필요한 경우가 아니면 force push를 피합니다.
+- 리뷰가 끝난 내용은 히스토리 재작성보다 후속 커밋으로 보완합니다.
 
-## Review Sequence
+## 리뷰 순서
 
-Review the rebuild in this order:
+재구축은 다음 순서로 리뷰합니다.
 
-1. workflow and plans
-2. scaffold and runtime boundaries
-3. API key auth and request context
-4. document upload and storage
-5. indexing worker and queue abstraction
-6. retrieval and reranking
-7. local LLM gateway
-8. chat and citation response
-9. frontend flows
-10. observability and hardening
+1. 워크플로우와 계획
+2. 스캐폴드와 런타임 경계
+3. API Key 인증과 요청 컨텍스트
+4. 문서 업로드와 저장소
+5. 인덱싱 워커와 큐 추상화
+6. 검색과 리랭킹
+7. 로컬 LLM 게이트웨이
+8. 채팅과 출처 포함 응답
+9. 프론트엔드 플로우
+10. 관측성과 하드닝
 
-## Initial Branch Plan
+## 초기 브랜치 계획
 
 - `develop`
 - `chore/workflow`
@@ -107,18 +107,18 @@ Review the rebuild in this order:
 - `chore/observability`
 - `fix/hardening`
 
-## Review Checklist
+## 리뷰 체크리스트
 
-Before opening a PR:
+PR 생성 전:
 
-- branch name follows the type rule
-- commit history is grouped by concern
-- tests for the touched area were run
-- docs changed with the code when behavior changed
-- PR body explains scope, non-goals, and verification
+- 브랜치 이름이 타입 규칙을 따르는지 확인합니다.
+- 커밋 히스토리가 관심사별로 분리되어 있는지 확인합니다.
+- 변경 영역의 테스트를 실행합니다.
+- 동작이 바뀌면 문서도 함께 갱신합니다.
+- PR 본문에 범위, 제외 범위, 검증 결과를 적습니다.
 
-Before merging into `develop`:
+`develop` 병합 전:
 
-- no unrelated file churn
-- no opportunistic refactors outside the PR scope
-- follow-up work is explicitly deferred to another branch
+- 관련 없는 파일 변경이 없는지 확인합니다.
+- PR 범위를 벗어난 리팩터링이 없는지 확인합니다.
+- 후속 작업은 별도 브랜치로 명시적으로 넘깁니다.
