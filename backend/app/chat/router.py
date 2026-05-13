@@ -13,6 +13,9 @@ from backend.app.documents.router import (
 from backend.app.llm.base import LLMClient, LLMProviderError
 from backend.app.llm.profiles import get_default_llm_profile
 from backend.app.llm.vllm_client import VLLMClient
+from backend.app.reranking.base import Reranker, RerankerProviderError, ScorePreservingReranker
+from backend.app.reranking.bge_client import BGERerankerClient
+from backend.app.reranking.profiles import get_default_reranker_profile
 from backend.app.retrieval.retriever import DenseRetriever
 
 
@@ -32,19 +35,30 @@ def get_llm_client(
     return VLLMClient(profile=get_default_llm_profile(settings))
 
 
+def get_reranker(
+    settings: Settings = Depends(get_runtime_settings),
+) -> Reranker:
+    if settings.reranker_backend == "bge":
+        return BGERerankerClient(profile=get_default_reranker_profile(settings))
+    return ScorePreservingReranker()
+
+
 def get_chat_service(
     retriever: DenseRetriever = Depends(get_retriever),
+    reranker: Reranker = Depends(get_reranker),
     llm_client: LLMClient = Depends(get_llm_client),
     settings: Settings = Depends(get_runtime_settings),
 ) -> ChatService:
     return ChatService(
         retriever=retriever,
+        reranker=reranker,
         llm_client=llm_client,
         retrieval_limit=settings.chat_retrieval_limit,
+        rerank_top_k=settings.chat_rerank_top_k,
     )
 
 
-@router.post("", response_model=ChatResponse)
+@router.post("", response_model=ChatResponse, response_model_exclude_none=True)
 async def answer_question(
     chat_request: ChatRequest,
     workspace_context: WorkspaceContext = Depends(require_workspace_context),
@@ -68,6 +82,14 @@ async def answer_question(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail={
                 "code": "CHAT_LLM_UNAVAILABLE",
+                "message": str(exc),
+            },
+        ) from exc
+    except RerankerProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": "CHAT_RERANKER_UNAVAILABLE",
                 "message": str(exc),
             },
         ) from exc

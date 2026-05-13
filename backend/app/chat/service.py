@@ -8,6 +8,7 @@ from backend.app.chat.models import (
     ChatUsage,
 )
 from backend.app.llm.base import ChatMessage, LLMClient, LLMRequest
+from backend.app.reranking.base import RerankRequest, RerankedChunk, Reranker
 from backend.app.retrieval.filters import RetrievalFilter
 from backend.app.retrieval.qdrant_store import RetrievedChunk
 
@@ -38,12 +39,16 @@ class ChatService:
         self,
         *,
         retriever: Retriever,
+        reranker: Reranker,
         llm_client: LLMClient,
         retrieval_limit: int,
+        rerank_top_k: int,
     ) -> None:
         self._retriever = retriever
+        self._reranker = reranker
         self._llm_client = llm_client
         self._retrieval_limit = retrieval_limit
+        self._rerank_top_k = rerank_top_k
 
     def answer(
         self,
@@ -51,15 +56,27 @@ class ChatService:
         workspace_context: WorkspaceContext,
         chat_request: ChatRequest,
     ) -> ChatResponse:
+        final_top_k = chat_request.top_k or self._rerank_top_k
+        retrieval_limit = max(self._retrieval_limit, final_top_k)
         chunks = self._retriever.retrieve(
             query_text=chat_request.question,
             filters=RetrievalFilter(
                 workspace_id=workspace_context.workspace_id,
                 document_ids=chat_request.document_ids,
             ),
-            limit=chat_request.top_k or self._retrieval_limit,
+            limit=retrieval_limit,
         )
         if not chunks:
+            raise ChatContextNotFoundError("질문에 사용할 수 있는 문서 컨텍스트가 없습니다.")
+
+        reranked_chunks = self._reranker.rerank(
+            RerankRequest(
+                query=chat_request.question,
+                chunks=chunks,
+                top_k=final_top_k,
+            )
+        )
+        if not reranked_chunks:
             raise ChatContextNotFoundError("질문에 사용할 수 있는 문서 컨텍스트가 없습니다.")
 
         llm_response = self._llm_client.generate(
@@ -70,7 +87,7 @@ class ChatService:
                         role="user",
                         content=_build_user_prompt(
                             question=chat_request.question,
-                            chunks=chunks,
+                            chunks=[item.chunk for item in reranked_chunks],
                         ),
                     ),
                 ],
@@ -80,13 +97,13 @@ class ChatService:
         return ChatResponse(
             answer=llm_response.content,
             model=llm_response.model,
-            citations=_build_citations(chunks),
+            citations=_build_citations(reranked_chunks),
             usage=ChatUsage(
                 prompt_tokens=llm_response.prompt_tokens,
                 completion_tokens=llm_response.completion_tokens,
                 total_tokens=llm_response.total_tokens,
             ),
-            retrieved_chunk_count=len(chunks),
+            retrieved_chunk_count=len(reranked_chunks),
         )
 
 
@@ -102,17 +119,18 @@ def _build_user_prompt(*, question: str, chunks: list[RetrievedChunk]) -> str:
     )
 
 
-def _build_citations(chunks: list[RetrievedChunk]) -> list[ChatCitation]:
+def _build_citations(chunks: list[RerankedChunk]) -> list[ChatCitation]:
     return [
         ChatCitation(
             citation_id=index,
-            document_id=chunk.document_id,
-            filename=chunk.filename,
-            chunk_index=chunk.chunk_index,
-            score=chunk.score,
-            snippet=_build_snippet(chunk.chunk_text),
+            document_id=item.chunk.document_id,
+            filename=item.chunk.filename,
+            chunk_index=item.chunk.chunk_index,
+            score=item.chunk.score,
+            rerank_score=item.rerank_score,
+            snippet=_build_snippet(item.chunk.chunk_text),
         )
-        for index, chunk in enumerate(chunks, start=1)
+        for index, item in enumerate(chunks, start=1)
     ]
 
 

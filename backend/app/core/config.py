@@ -85,6 +85,24 @@ class Settings(BaseModel):
     chat_retrieval_limit: int = Field(
         default_factory=lambda: int(os.getenv("CHAT_RETRIEVAL_LIMIT", "5")),
     )
+    chat_rerank_top_k: int = Field(
+        default_factory=lambda: int(os.getenv("CHAT_RERANK_TOP_K", "5")),
+    )
+    reranker_backend: str = Field(
+        default_factory=lambda: os.getenv("RERANKER_BACKEND", "score"),
+    )
+    reranker_base_url: str = Field(
+        default_factory=lambda: os.getenv("RERANKER_BASE_URL", "http://reranker:8001/v1"),
+    )
+    reranker_model: str = Field(
+        default_factory=lambda: os.getenv("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3"),
+    )
+    reranker_api_key: str | None = Field(
+        default_factory=lambda: _optional_env("RERANKER_API_KEY"),
+    )
+    reranker_timeout_seconds: float = Field(
+        default_factory=lambda: float(os.getenv("RERANKER_TIMEOUT_SECONDS", "10.0")),
+    )
 
 
 @lru_cache(maxsize=1)
