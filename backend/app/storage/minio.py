@@ -18,6 +18,9 @@ class StorageService(Protocol):
     ) -> str:
         ...
 
+    def download_document(self, *, storage_key: str) -> bytes:
+        ...
+
 
 class MinioStorageService:
     def __init__(self, settings: Settings, client: Minio | None = None) -> None:
@@ -48,6 +51,17 @@ class MinioStorageService:
             content_type=content_type or "application/octet-stream",
         )
         return storage_key
+
+    def download_document(self, *, storage_key: str) -> bytes:
+        response = self._client.get_object(
+            bucket_name=self._bucket,
+            object_name=storage_key,
+        )
+        try:
+            return response.read()
+        finally:
+            response.close()
+            response.release_conn()
 
     def _ensure_bucket(self) -> None:
         if not self._client.bucket_exists(self._bucket):
