@@ -1,7 +1,7 @@
 :root {
   font-family: Inter, "Segoe UI", sans-serif;
   color: #111827;
-  background: #f5f7fb;
+  background: #f4f6f8;
 }
 
 * {
@@ -10,4 +10,120 @@
 
 body {
   margin: 0;
+}
+
+.app-shell {
+  min-height: 100vh;
+  background: #f4f6f8;
+}
+
+.app-header {
+  height: auto;
+  min-height: 72px;
+  padding: 14px 28px;
+  background: #ffffff;
+  border-bottom: 1px solid #dde3ea;
+  display: flex;
+  align-items: center;
+  line-height: 1.4;
+}
+
+.app-title {
+  margin: 0;
+}
+
+.app-content {
+  padding: 24px;
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.95fr) minmax(420px, 1.35fr);
+  gap: 16px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.tool-panel {
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid #dde3ea;
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.panel-heading {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.panel-heading h5 {
+  margin: 0;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.inline-alert {
+  margin-bottom: 12px;
+}
+
+.top-k-input {
+  width: 82px;
+}
+
+.chat-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.selected-documents {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.answer-panel {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #e6ebf1;
+}
+
+.answer-text {
+  white-space: pre-wrap;
+}
+
+@media (max-width: 1160px) {
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-content {
+    padding: 16px;
+  }
+
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-heading,
+  .chat-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .top-k-input {
+    width: 100%;
+  }
 }
