@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 import pytest
+from qdrant_client import QdrantClient
 
 from backend.app.core.config import get_settings
 from backend.app.main import create_app
@@ -56,10 +57,16 @@ def client(monkeypatch: pytest.MonkeyPatch, storage: InMemoryStorage) -> TestCli
         "local-dev-key|workspace-alpha|Workspace Alpha",
     )
 
-    from backend.app.documents.router import get_storage_service
+    from backend.app.documents.router import get_qdrant_store, get_storage_service
+    from backend.app.retrieval.qdrant_store import QdrantVectorStore
 
     app = create_app()
     app.dependency_overrides[get_storage_service] = lambda: storage
+    app.dependency_overrides[get_qdrant_store] = lambda: QdrantVectorStore(
+        client=QdrantClient(":memory:"),
+        collection_name="docsearch_chunks",
+        vector_size=8,
+    )
 
     return TestClient(app)
 

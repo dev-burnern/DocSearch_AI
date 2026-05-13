@@ -13,6 +13,7 @@ def test_인프로세스_큐가_잡을_즉시_처리한다() -> None:
             parser="text",
             chunk_count=2,
             chunks=["alpha", "beta"],
+            embeddings=[[0.1, 0.2, 0.3, 0.4], [0.2, 0.3, 0.4, 0.5]],
             embedding_count=2,
             embedding_dimensions=4,
         )
