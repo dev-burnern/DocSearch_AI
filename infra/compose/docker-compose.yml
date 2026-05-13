@@ -24,6 +24,11 @@ services:
       APP_NAME: DocSearch AI
       APP_ENV: development
       DEBUG: "false"
+      LLM_BASE_URL: http://llm:8000/v1
+      LLM_MODEL: google/gemma-4-E4B-it
+      LLM_TIMEOUT_SECONDS: "30.0"
+      LLM_MAX_TOKENS: "1024"
+      LLM_TEMPERATURE: "0.2"
     ports:
       - "8000:8000"
     depends_on:
@@ -31,6 +36,7 @@ services:
       - redis
       - qdrant
       - minio
+      - llm
 
   worker:
     build:
