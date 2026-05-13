@@ -29,6 +29,7 @@ services:
       LLM_TIMEOUT_SECONDS: "30.0"
       LLM_MAX_TOKENS: "1024"
       LLM_TEMPERATURE: "0.2"
+      CHAT_RETRIEVAL_LIMIT: "5"
     ports:
       - "8000:8000"
     depends_on:

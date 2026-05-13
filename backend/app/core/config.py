@@ -82,6 +82,9 @@ class Settings(BaseModel):
     llm_temperature: float = Field(
         default_factory=lambda: float(os.getenv("LLM_TEMPERATURE", "0.2")),
     )
+    chat_retrieval_limit: int = Field(
+        default_factory=lambda: int(os.getenv("CHAT_RETRIEVAL_LIMIT", "5")),
+    )
 
 
 @lru_cache(maxsize=1)
