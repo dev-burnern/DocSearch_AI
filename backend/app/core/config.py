@@ -51,6 +51,12 @@ class Settings(BaseModel):
     embedding_vector_size: int = Field(
         default_factory=lambda: int(os.getenv("EMBEDDING_VECTOR_SIZE", "8")),
     )
+    qdrant_url: str = Field(
+        default_factory=lambda: os.getenv("QDRANT_URL", "http://qdrant:6333"),
+    )
+    qdrant_collection: str = Field(
+        default_factory=lambda: os.getenv("QDRANT_COLLECTION", "docsearch_chunks"),
+    )
 
 
 @lru_cache(maxsize=1)
