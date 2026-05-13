@@ -1,6 +1,7 @@
 from fastapi import Depends, FastAPI
 from backend.app.auth.dependencies import require_workspace_context
 from backend.app.auth.models import WorkspaceContext
+from backend.app.chat.router import router as chat_router
 from backend.app.documents.router import router as documents_router
 from backend.app.middleware.request_context import RequestContextMiddleware
 
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
         return workspace_context.model_dump()
 
     app.include_router(documents_router)
+    app.include_router(chat_router)
 
     return app
 
