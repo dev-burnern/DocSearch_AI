@@ -8,6 +8,7 @@ from backend.app.main import create_app
 class InMemoryStorage:
     def __init__(self) -> None:
         self.saved: list[dict[str, bytes | str]] = []
+        self.by_key: dict[str, bytes] = {}
 
     def upload_document(
         self,
@@ -29,7 +30,11 @@ class InMemoryStorage:
                 "storage_key": storage_key,
             },
         )
+        self.by_key[storage_key] = data
         return storage_key
+
+    def download_document(self, *, storage_key: str) -> bytes:
+        return self.by_key[storage_key]
 
 
 @pytest.fixture(autouse=True)
@@ -77,6 +82,9 @@ def test_문서_업로드가_저장소에_파일을_저장하고_메타데이터
     assert response.json()["character_count"] == len("hello docsearch")
     assert response.json()["text_preview"] == "hello docsearch"
     assert response.json()["storage_key"].startswith("workspace-alpha/")
+    assert response.json()["indexing_job_id"]
+    assert response.json()["indexing_status"] == "completed"
+    assert response.json()["chunk_count"] == 1
 
     assert len(storage.saved) == 1
     assert storage.saved[0]["filename"] == "memo.txt"
