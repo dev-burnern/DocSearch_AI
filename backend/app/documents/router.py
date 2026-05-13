@@ -14,7 +14,9 @@ from backend.app.jobs.base import JobQueue
 from backend.app.jobs.inprocess import InProcessJobQueue
 from backend.app.jobs.redis_queue import RedisJobQueue
 from backend.app.parsers.base import ParserRegistry
+from backend.app.retrieval.qdrant_store import QdrantVectorStore
 from backend.app.storage.minio import StorageService, create_minio_storage_service
+from qdrant_client import QdrantClient
 
 router = APIRouter(prefix="/v1/documents", tags=["documents"])
 
@@ -47,17 +49,35 @@ def get_embedder(
     return DeterministicEmbedder(vector_size=settings.embedding_vector_size)
 
 
+@lru_cache(maxsize=1)
+def get_qdrant_client() -> QdrantClient:
+    settings = get_settings()
+    return QdrantClient(url=settings.qdrant_url)
+
+
+def get_qdrant_store(
+    settings: Settings = Depends(get_runtime_settings),
+) -> QdrantVectorStore:
+    return QdrantVectorStore(
+        client=get_qdrant_client(),
+        collection_name=settings.qdrant_collection,
+        vector_size=settings.embedding_vector_size,
+    )
+
+
 def get_indexing_pipeline(
     storage_service: StorageService = Depends(get_storage_service),
     parser_registry: ParserRegistry = Depends(get_parser_registry),
     chunker: CharacterChunker = Depends(get_chunker),
     embedder: DeterministicEmbedder = Depends(get_embedder),
+    vector_store: QdrantVectorStore = Depends(get_qdrant_store),
 ) -> IndexingPipeline:
     return IndexingPipeline(
         storage_service=storage_service,
         parser_registry=parser_registry,
         chunker=chunker,
         embedder=embedder,
+        vector_store=vector_store,
     )
 
 
