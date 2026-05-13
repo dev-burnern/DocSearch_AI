@@ -8,6 +8,13 @@ def _bool_env(name: str, default: bool) -> bool:
     return os.getenv(name, str(default)).lower() == "true"
 
 
+def _optional_env(name: str) -> str | None:
+    value = os.getenv(name)
+    if value is None or value == "":
+        return None
+    return value
+
+
 class Settings(BaseModel):
     app_name: str = Field(
         default_factory=lambda: os.getenv("APP_NAME", "DocSearch AI"),
@@ -56,6 +63,24 @@ class Settings(BaseModel):
     )
     qdrant_collection: str = Field(
         default_factory=lambda: os.getenv("QDRANT_COLLECTION", "docsearch_chunks"),
+    )
+    llm_base_url: str = Field(
+        default_factory=lambda: os.getenv("LLM_BASE_URL", "http://llm:8000/v1"),
+    )
+    llm_model: str = Field(
+        default_factory=lambda: os.getenv("LLM_MODEL", "google/gemma-4-E4B-it"),
+    )
+    llm_api_key: str | None = Field(
+        default_factory=lambda: _optional_env("LLM_API_KEY"),
+    )
+    llm_timeout_seconds: float = Field(
+        default_factory=lambda: float(os.getenv("LLM_TIMEOUT_SECONDS", "30.0")),
+    )
+    llm_max_tokens: int = Field(
+        default_factory=lambda: int(os.getenv("LLM_MAX_TOKENS", "1024")),
+    )
+    llm_temperature: float = Field(
+        default_factory=lambda: float(os.getenv("LLM_TEMPERATURE", "0.2")),
     )
 
 
