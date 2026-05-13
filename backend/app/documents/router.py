@@ -4,8 +4,15 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from backend.app.auth.dependencies import require_workspace_context
 from backend.app.auth.models import WorkspaceContext
+from backend.app.core.config import Settings, get_settings
 from backend.app.documents.models import DocumentUploadResponse
 from backend.app.documents.service import DocumentService
+from backend.app.indexing.chunker import CharacterChunker
+from backend.app.indexing.embedder import DeterministicEmbedder
+from backend.app.indexing.pipeline import IndexingPipeline
+from backend.app.jobs.base import JobQueue
+from backend.app.jobs.inprocess import InProcessJobQueue
+from backend.app.jobs.redis_queue import RedisJobQueue
 from backend.app.parsers.base import ParserRegistry
 from backend.app.storage.minio import StorageService, create_minio_storage_service
 
@@ -16,18 +23,63 @@ def get_parser_registry() -> ParserRegistry:
     return ParserRegistry()
 
 
+def get_runtime_settings() -> Settings:
+    return get_settings()
+
+
 @lru_cache(maxsize=1)
 def get_storage_service() -> StorageService:
     return create_minio_storage_service()
 
 
+def get_chunker(
+    settings: Settings = Depends(get_runtime_settings),
+) -> CharacterChunker:
+    return CharacterChunker(
+        max_characters=settings.chunk_max_characters,
+        overlap_characters=settings.chunk_overlap_characters,
+    )
+
+
+def get_embedder(
+    settings: Settings = Depends(get_runtime_settings),
+) -> DeterministicEmbedder:
+    return DeterministicEmbedder(vector_size=settings.embedding_vector_size)
+
+
+def get_indexing_pipeline(
+    storage_service: StorageService = Depends(get_storage_service),
+    parser_registry: ParserRegistry = Depends(get_parser_registry),
+    chunker: CharacterChunker = Depends(get_chunker),
+    embedder: DeterministicEmbedder = Depends(get_embedder),
+) -> IndexingPipeline:
+    return IndexingPipeline(
+        storage_service=storage_service,
+        parser_registry=parser_registry,
+        chunker=chunker,
+        embedder=embedder,
+    )
+
+
+def get_job_queue(
+    pipeline: IndexingPipeline = Depends(get_indexing_pipeline),
+    settings: Settings = Depends(get_runtime_settings),
+) -> JobQueue:
+    if settings.indexing_queue_backend == "redis":
+        return RedisJobQueue()
+
+    return InProcessJobQueue(processor=pipeline.run)
+
+
 def get_document_service(
     parser_registry: ParserRegistry = Depends(get_parser_registry),
     storage_service: StorageService = Depends(get_storage_service),
+    job_queue: JobQueue = Depends(get_job_queue),
 ) -> DocumentService:
     return DocumentService(
         parser_registry=parser_registry,
         storage_service=storage_service,
+        job_queue=job_queue,
     )
 
 

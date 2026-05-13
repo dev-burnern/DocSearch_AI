@@ -39,6 +39,18 @@ class Settings(BaseModel):
     minio_secure: bool = Field(
         default_factory=lambda: _bool_env("MINIO_SECURE", False),
     )
+    indexing_queue_backend: str = Field(
+        default_factory=lambda: os.getenv("INDEXING_QUEUE_BACKEND", "inprocess"),
+    )
+    chunk_max_characters: int = Field(
+        default_factory=lambda: int(os.getenv("CHUNK_MAX_CHARACTERS", "1000")),
+    )
+    chunk_overlap_characters: int = Field(
+        default_factory=lambda: int(os.getenv("CHUNK_OVERLAP_CHARACTERS", "100")),
+    )
+    embedding_vector_size: int = Field(
+        default_factory=lambda: int(os.getenv("EMBEDDING_VECTOR_SIZE", "8")),
+    )
 
 
 @lru_cache(maxsize=1)

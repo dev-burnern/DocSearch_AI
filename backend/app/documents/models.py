@@ -10,3 +10,6 @@ class DocumentUploadResponse(BaseModel):
     character_count: int
     text_preview: str
     storage_key: str
+    indexing_job_id: str
+    indexing_status: str
+    chunk_count: int
