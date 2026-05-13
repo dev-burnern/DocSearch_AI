@@ -1,5 +1,7 @@
 from typing import Protocol
 
+from backend.app.audit.models import AuditCitation, ChatAuditEvent
+from backend.app.audit.store import AuditLogStore
 from backend.app.auth.models import WorkspaceContext
 from backend.app.chat.models import (
     ChatCitation,
@@ -41,12 +43,14 @@ class ChatService:
         retriever: Retriever,
         reranker: Reranker,
         llm_client: LLMClient,
+        audit_log: AuditLogStore,
         retrieval_limit: int,
         rerank_top_k: int,
     ) -> None:
         self._retriever = retriever
         self._reranker = reranker
         self._llm_client = llm_client
+        self._audit_log = audit_log
         self._retrieval_limit = retrieval_limit
         self._rerank_top_k = rerank_top_k
 
@@ -94,7 +98,7 @@ class ChatService:
             )
         )
 
-        return ChatResponse(
+        response = ChatResponse(
             answer=llm_response.content,
             model=llm_response.model,
             citations=_build_citations(reranked_chunks),
@@ -105,6 +109,36 @@ class ChatService:
             ),
             retrieved_chunk_count=len(reranked_chunks),
         )
+        self._audit_log.record_chat_event(
+            ChatAuditEvent(
+                request_id=workspace_context.request_id,
+                workspace_id=workspace_context.workspace_id,
+                workspace_name=workspace_context.workspace_name,
+                question=chat_request.question,
+                document_ids=chat_request.document_ids,
+                retrieval_limit=retrieval_limit,
+                rerank_top_k=final_top_k,
+                retrieved_chunk_count=response.retrieved_chunk_count,
+                model=response.model,
+                answer_preview=_build_answer_preview(response.answer),
+                answer_character_count=len(response.answer),
+                prompt_tokens=response.usage.prompt_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                total_tokens=response.usage.total_tokens,
+                citations=[
+                    AuditCitation(
+                        citation_id=citation.citation_id,
+                        document_id=citation.document_id,
+                        filename=citation.filename,
+                        chunk_index=citation.chunk_index,
+                        score=citation.score,
+                        rerank_score=citation.rerank_score,
+                    )
+                    for citation in response.citations
+                ],
+            )
+        )
+        return response
 
 
 def _build_user_prompt(*, question: str, chunks: list[RetrievedChunk]) -> str:
@@ -139,3 +173,10 @@ def _build_snippet(chunk_text: str) -> str:
     if len(normalized) <= 240:
         return normalized
     return f"{normalized[:237]}..."
+
+
+def _build_answer_preview(answer: str) -> str:
+    normalized = " ".join(answer.split())
+    if len(normalized) <= 500:
+        return normalized
+    return f"{normalized[:497]}..."

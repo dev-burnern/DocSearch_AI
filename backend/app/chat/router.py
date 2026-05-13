@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from backend.app.audit.router import get_audit_log_store
+from backend.app.audit.store import AuditLogStore
 from backend.app.auth.dependencies import require_workspace_context
 from backend.app.auth.models import WorkspaceContext
 from backend.app.chat.models import ChatRequest, ChatResponse
@@ -47,12 +49,14 @@ def get_chat_service(
     retriever: DenseRetriever = Depends(get_retriever),
     reranker: Reranker = Depends(get_reranker),
     llm_client: LLMClient = Depends(get_llm_client),
+    audit_log: AuditLogStore = Depends(get_audit_log_store),
     settings: Settings = Depends(get_runtime_settings),
 ) -> ChatService:
     return ChatService(
         retriever=retriever,
         reranker=reranker,
         llm_client=llm_client,
+        audit_log=audit_log,
         retrieval_limit=settings.chat_retrieval_limit,
         rerank_top_k=settings.chat_rerank_top_k,
     )
