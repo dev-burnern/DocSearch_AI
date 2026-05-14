@@ -313,6 +313,8 @@ files/
 !backend/app/documents/**
 !backend/tests/documents/
 !backend/tests/documents/**
+!frontend/src/features/documents/
+!frontend/src/features/documents/**
 
 # Model cache
 models/

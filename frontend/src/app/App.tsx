@@ -2,6 +2,7 @@ import { Layout, Space, Tabs, Tag, Typography } from "antd";
 
 import { ChatWorkspace } from "../features/chat/ChatWorkspace";
 import { AuditLogWorkspace } from "../features/audit/AuditLogWorkspace";
+import { DocumentWorkspace } from "../features/documents/DocumentWorkspace";
 
 const { Content, Header } = Layout;
 const { Paragraph, Title } = Typography;
@@ -33,6 +34,11 @@ export default function App() {
               key: "chat",
               label: "채팅",
               children: <ChatWorkspace />,
+            },
+            {
+              key: "documents",
+              label: "문서",
+              children: <DocumentWorkspace />,
             },
             {
               key: "audit",
