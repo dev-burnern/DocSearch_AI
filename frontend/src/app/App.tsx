@@ -1,6 +1,7 @@
-import { Layout, Space, Tag, Typography } from "antd";
+import { Layout, Space, Tabs, Tag, Typography } from "antd";
 
 import { ChatWorkspace } from "../features/chat/ChatWorkspace";
+import { AuditLogWorkspace } from "../features/audit/AuditLogWorkspace";
 
 const { Content, Header } = Layout;
 const { Paragraph, Title } = Typography;
@@ -25,7 +26,21 @@ export default function App() {
         </Space>
       </Header>
       <Content className="app-content">
-        <ChatWorkspace />
+        <Tabs
+          defaultActiveKey="chat"
+          items={[
+            {
+              key: "chat",
+              label: "채팅",
+              children: <ChatWorkspace />,
+            },
+            {
+              key: "audit",
+              label: "감사 로그",
+              children: <AuditLogWorkspace />,
+            },
+          ]}
+        />
       </Content>
     </Layout>
   );
