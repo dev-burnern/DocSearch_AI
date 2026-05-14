@@ -1,0 +1,112 @@
+export interface AuditLogRequest {
+  apiKey: string;
+}
+
+export interface AuditCitation {
+  citation_id: number;
+  document_id: string;
+  filename: string;
+  chunk_index: number;
+  score: number;
+  rerank_score?: number | null;
+}
+
+export interface ChatAuditEvent {
+  event_id: string;
+  event_type: string;
+  occurred_at: string;
+  request_id: string;
+  workspace_id: string;
+  workspace_name: string;
+  question: string;
+  document_ids?: string[] | null;
+  retrieval_limit: number;
+  rerank_top_k: number;
+  retrieved_chunk_count: number;
+  model: string;
+  answer_preview: string;
+  answer_character_count: number;
+  prompt_tokens?: number | null;
+  completion_tokens?: number | null;
+  total_tokens?: number | null;
+  citations: AuditCitation[];
+}
+
+export interface ChatAuditEventListResponse {
+  events: ChatAuditEvent[];
+  total: number;
+}
+
+export interface AuditLogClient {
+  listChatEvents(payload: AuditLogRequest): Promise<ChatAuditEventListResponse>;
+}
+
+type Fetcher = (input: string, init: RequestInit) => Promise<Response>;
+
+interface AuditLogApiClientOptions {
+  baseUrl?: string;
+  fetcher?: Fetcher;
+}
+
+export class AuditLogApiError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AuditLogApiError";
+  }
+}
+
+export function createAuditLogApiClient(
+  options: AuditLogApiClientOptions = {},
+): AuditLogClient {
+  const baseUrl = normalizeBaseUrl(
+    options.baseUrl ?? import.meta.env.VITE_API_BASE_URL ?? "/api",
+  );
+  const fetcher =
+    options.fetcher ??
+    ((input: string, init: RequestInit) => globalThis.fetch(input, init));
+
+  return {
+    async listChatEvents(
+      payload: AuditLogRequest,
+    ): Promise<ChatAuditEventListResponse> {
+      const response = await fetcher(`${baseUrl}/v1/audit-logs/chat`, {
+        method: "GET",
+        headers: {
+          "X-API-Key": payload.apiKey,
+        },
+      });
+
+      if (!response.ok) {
+        throw new AuditLogApiError(await readErrorMessage(response));
+      }
+
+      return (await response.json()) as ChatAuditEventListResponse;
+    },
+  };
+}
+
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.replace(/\/$/, "");
+}
+
+async function readErrorMessage(response: Response): Promise<string> {
+  const fallback = `감사 로그 API 요청에 실패했습니다. (${response.status})`;
+
+  try {
+    const payload = (await response.json()) as {
+      detail?: string | { message?: string };
+    };
+
+    if (typeof payload.detail === "string") {
+      return payload.detail;
+    }
+
+    if (payload.detail?.message) {
+      return payload.detail.message;
+    }
+  } catch {
+    return fallback;
+  }
+
+  return fallback;
+}
