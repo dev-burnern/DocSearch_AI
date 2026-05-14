@@ -19,6 +19,8 @@ eggs/
 .eggs/
 lib/
 lib64/
+!frontend/src/lib/
+!frontend/src/lib/**
 parts/
 sdist/
 var/
@@ -168,6 +170,8 @@ dist
 # Gatsby files
 .cache/
 public
+!frontend/public/
+!frontend/public/**
 
 # Storybook build outputs
 .out
