@@ -24,6 +24,8 @@ services:
       APP_NAME: DocSearch AI
       APP_ENV: development
       DEBUG: "false"
+      DATABASE_URL: postgresql://docsearch:docsearch@postgres:5432/docsearch
+      AUDIT_LOG_BACKEND: postgres
       LLM_BASE_URL: http://llm:8000/v1
       LLM_MODEL: google/gemma-4-E4B-it
       LLM_TIMEOUT_SECONDS: "30.0"
