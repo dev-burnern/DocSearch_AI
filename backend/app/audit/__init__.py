@@ -3,6 +3,7 @@ from backend.app.audit.models import (
     ChatAuditEvent,
     ChatAuditEventListResponse,
 )
+from backend.app.audit.postgres_store import PostgresAuditLogStore
 from backend.app.audit.store import AuditLogStore, InMemoryAuditLogStore
 
 __all__ = [
@@ -11,4 +12,5 @@ __all__ = [
     "ChatAuditEvent",
     "ChatAuditEventListResponse",
     "InMemoryAuditLogStore",
+    "PostgresAuditLogStore",
 ]

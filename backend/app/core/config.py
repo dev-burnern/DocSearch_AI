@@ -31,6 +31,12 @@ class Settings(BaseModel):
             "local-dev-key|local-workspace|Local Workspace",
         ),
     )
+    database_url: str = Field(
+        default_factory=lambda: os.getenv(
+            "DATABASE_URL",
+            "postgresql://docsearch:docsearch@postgres:5432/docsearch",
+        ),
+    )
     minio_endpoint: str = Field(
         default_factory=lambda: os.getenv("MINIO_ENDPOINT", "minio:9000"),
     )
@@ -102,6 +108,9 @@ class Settings(BaseModel):
     )
     reranker_timeout_seconds: float = Field(
         default_factory=lambda: float(os.getenv("RERANKER_TIMEOUT_SECONDS", "10.0")),
+    )
+    audit_log_backend: str = Field(
+        default_factory=lambda: os.getenv("AUDIT_LOG_BACKEND", "inmemory"),
     )
 
 
