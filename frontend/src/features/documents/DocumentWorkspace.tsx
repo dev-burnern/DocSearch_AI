@@ -1,4 +1,8 @@
-import { SearchOutlined, UploadOutlined } from "@ant-design/icons";
+import {
+  SearchOutlined,
+  UnorderedListOutlined,
+  UploadOutlined,
+} from "@ant-design/icons";
 import {
   Alert,
   Button,
@@ -15,6 +19,8 @@ import { useMemo, useState } from "react";
 
 import {
   DocumentClient,
+  DocumentListResponse,
+  DocumentRecord,
   DocumentUploadResponse,
   createDocumentApiClient,
 } from "../../lib/document-api";
@@ -56,11 +62,16 @@ export function DocumentWorkspace({
   const [searchResult, setSearchResult] = useState<SearchResponse | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [documentList, setDocumentList] =
+    useState<DocumentListResponse | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
+  const [isListing, setIsListing] = useState(false);
 
   const trimmedApiKey = apiKey.trim();
   const canUpload = trimmedApiKey.length > 0 && file !== null && !isUploading;
   const canSearch =
     trimmedApiKey.length > 0 && query.trim().length > 0 && !isSearching;
+  const canList = trimmedApiKey.length > 0 && !isListing;
 
   async function uploadDocument() {
     if (!canUpload || file === null) {
@@ -110,6 +121,29 @@ export function DocumentWorkspace({
       );
     } finally {
       setIsSearching(false);
+    }
+  }
+
+  async function listDocuments() {
+    if (!canList) {
+      return;
+    }
+
+    setIsListing(true);
+    setListError(null);
+
+    try {
+      const nextList = await resolvedDocumentClient.listDocuments({
+        apiKey: trimmedApiKey,
+      });
+      setDocumentList(nextList);
+    } catch (error) {
+      setDocumentList(null);
+      setListError(
+        error instanceof Error ? error.message : "문서 목록 조회에 실패했습니다.",
+      );
+    } finally {
+      setIsListing(false);
     }
   }
 
@@ -164,67 +198,101 @@ export function DocumentWorkspace({
       </Card>
 
       <Card className="chat-panel document-main" variant="borderless">
-        <form
-          className="document-search-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void searchDocuments();
-          }}
-        >
-          <Title level={4} className="section-title">
-            문서 검색
-          </Title>
-          <label className="field-label" htmlFor="search-query">
-            검색어
-          </label>
-          <Input
-            id="search-query"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
+        <Space direction="vertical" size={20} className="chat-main-stack">
+          <section className="document-list-section">
+            <Space className="audit-heading" align="start" wrap>
+              <div>
+                <Title level={4} className="section-title">
+                  업로드 문서
+                </Title>
+                <Text type="secondary">워크스페이스 문서 메타데이터</Text>
+              </div>
+              <Button
+                type="default"
+                icon={<UnorderedListOutlined />}
+                loading={isListing}
+                disabled={!canList}
+                onClick={() => void listDocuments()}
+              >
+                문서 목록 조회
+              </Button>
+            </Space>
 
-          <label className="field-label" htmlFor="search-document-ids">
-            검색 문서 ID
-          </label>
-          <Input
-            id="search-document-ids"
-            value={documentIds}
-            onChange={(event) => setDocumentIds(event.target.value)}
-          />
+            {listError ? (
+              <Alert type="error" message={listError} showIcon />
+            ) : null}
 
-          <label className="field-label" htmlFor="search-limit">
-            검색 개수
-          </label>
-          <InputNumber
-            id="search-limit"
-            min={1}
-            max={20}
-            value={limit}
-            onChange={(value) => setLimit(value ?? 5)}
-          />
+            {documentList?.documents.length === 0 ? (
+              <Empty description="업로드된 문서가 없습니다." />
+            ) : null}
 
-          <Button
-            type="primary"
-            htmlType="submit"
-            icon={<SearchOutlined />}
-            loading={isSearching}
-            disabled={!canSearch}
+            {documentList && documentList.documents.length > 0 ? (
+              <DocumentList result={documentList} />
+            ) : null}
+          </section>
+
+          <form
+            className="document-search-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void searchDocuments();
+            }}
           >
-            문서 검색
-          </Button>
+            <Title level={4} className="section-title">
+              문서 검색
+            </Title>
+            <label className="field-label" htmlFor="search-query">
+              검색어
+            </label>
+            <Input
+              id="search-query"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
 
-          {searchError ? (
-            <Alert type="error" message={searchError} showIcon />
-          ) : null}
+            <label className="field-label" htmlFor="search-document-ids">
+              검색 문서 ID
+            </label>
+            <Input
+              id="search-document-ids"
+              value={documentIds}
+              onChange={(event) => setDocumentIds(event.target.value)}
+            />
 
-          {searchResult?.results.length === 0 ? (
-            <Empty description="검색 결과가 없습니다." />
-          ) : null}
+            <label className="field-label" htmlFor="search-limit">
+              검색 개수
+            </label>
+            <InputNumber
+              id="search-limit"
+              min={1}
+              max={20}
+              value={limit}
+              onChange={(value) => setLimit(value ?? 5)}
+            />
 
-          {searchResult && searchResult.results.length > 0 ? (
-            <SearchResults result={searchResult} />
-          ) : null}
-        </form>
+            <Button
+              type="primary"
+              htmlType="submit"
+              icon={<SearchOutlined />}
+              loading={isSearching}
+              disabled={!canSearch}
+            >
+              문서 검색
+            </Button>
+
+            {searchError ? (
+              <Alert type="error" message={searchError} showIcon />
+            ) : null}
+
+            {searchResult?.results.length === 0 ? (
+              <Empty description="검색 결과가 없습니다." />
+            ) : null}
+
+            {searchResult && searchResult.results.length > 0 ? (
+              <SearchResults result={searchResult} />
+            ) : null}
+          </form>
+        </Space>
       </Card>
     </section>
   );
@@ -245,6 +313,40 @@ function UploadResult({ result }: { result: DocumentUploadResponse }) {
         <Paragraph className="answer-text">{result.text_preview}</Paragraph>
       </Space>
     </section>
+  );
+}
+
+function DocumentList({ result }: { result: DocumentListResponse }) {
+  return (
+    <section className="document-result" aria-label="업로드 문서 목록">
+      <Space direction="vertical" size={12} className="chat-main-stack">
+        <Tag color="blue">total {result.total}</Tag>
+        <List
+          className="audit-event-list"
+          dataSource={result.documents}
+          renderItem={(record) => <DocumentListItem record={record} />}
+        />
+      </Space>
+    </section>
+  );
+}
+
+function DocumentListItem({ record }: { record: DocumentRecord }) {
+  return (
+    <List.Item className="audit-event-item">
+      <Space direction="vertical" size={6} className="chat-main-stack">
+        <Space wrap>
+          <Text strong>{record.filename}</Text>
+          <Tag color="green">{record.indexing_status}</Tag>
+          <Tag color="blue">chunks {record.chunk_count}</Tag>
+          <Tag>{record.parser}</Tag>
+          <Text type="secondary">{formatUploadedAt(record.uploaded_at)}</Text>
+        </Space>
+        <Text copyable>{record.document_id}</Text>
+        <Text type="secondary">{record.workspace_name}</Text>
+        <Paragraph className="answer-text">{record.text_preview}</Paragraph>
+      </Space>
+    </List.Item>
   );
 }
 
@@ -278,6 +380,19 @@ function SearchResultItem({ chunk }: { chunk: SearchResultChunk }) {
       </Space>
     </List.Item>
   );
+}
+
+function formatUploadedAt(value: string): string {
+  const uploadedAt = new Date(value);
+
+  if (Number.isNaN(uploadedAt.getTime())) {
+    return value;
+  }
+
+  return uploadedAt.toLocaleString("ko-KR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }
 
 function parseDocumentIds(value: string): string[] {

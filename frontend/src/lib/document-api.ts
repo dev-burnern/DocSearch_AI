@@ -3,6 +3,10 @@ export interface DocumentUploadPayload {
   file: File;
 }
 
+export interface DocumentListPayload {
+  apiKey: string;
+}
+
 export interface DocumentUploadResponse {
   document_id: string;
   workspace_id: string;
@@ -17,8 +21,18 @@ export interface DocumentUploadResponse {
   chunk_count: number;
 }
 
+export interface DocumentRecord extends DocumentUploadResponse {
+  uploaded_at: string;
+}
+
+export interface DocumentListResponse {
+  documents: DocumentRecord[];
+  total: number;
+}
+
 export interface DocumentClient {
   uploadDocument(payload: DocumentUploadPayload): Promise<DocumentUploadResponse>;
+  listDocuments(payload: DocumentListPayload): Promise<DocumentListResponse>;
 }
 
 type Fetcher = (input: string, init: RequestInit) => Promise<Response>;
@@ -65,6 +79,23 @@ export function createDocumentApiClient(
       }
 
       return (await response.json()) as DocumentUploadResponse;
+    },
+
+    async listDocuments(
+      payload: DocumentListPayload,
+    ): Promise<DocumentListResponse> {
+      const response = await fetcher(`${baseUrl}/v1/documents`, {
+        method: "GET",
+        headers: {
+          "X-API-Key": payload.apiKey,
+        },
+      });
+
+      if (!response.ok) {
+        throw new DocumentApiError(await readErrorMessage(response));
+      }
+
+      return (await response.json()) as DocumentListResponse;
     },
   };
 }
