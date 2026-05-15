@@ -96,6 +96,59 @@ class PostgresDocumentMetadataStore:
 
         return [DocumentRecord.model_validate(row) for row in rows]
 
+    def get_document(
+        self,
+        *,
+        workspace_id: str,
+        document_id: str,
+    ) -> DocumentRecord | None:
+        with self._connection_factory() as connection:
+            cursor = connection.execute(
+                f"""
+                SELECT
+                    {_document_columns()}
+                FROM document_metadata
+                WHERE workspace_id = %(workspace_id)s
+                AND document_id = %(document_id)s
+                """,
+                {
+                    "workspace_id": workspace_id,
+                    "document_id": document_id,
+                },
+            )
+            rows = cursor.fetchall()
+
+        if not rows:
+            return None
+        return DocumentRecord.model_validate(rows[0])
+
+    def delete_document(
+        self,
+        *,
+        workspace_id: str,
+        document_id: str,
+    ) -> DocumentRecord | None:
+        with self._connection_factory() as connection:
+            cursor = connection.execute(
+                f"""
+                DELETE FROM document_metadata
+                WHERE workspace_id = %(workspace_id)s
+                AND document_id = %(document_id)s
+                RETURNING
+                    {_document_columns()}
+                """,
+                {
+                    "workspace_id": workspace_id,
+                    "document_id": document_id,
+                },
+            )
+            rows = cursor.fetchall()
+            connection.commit()
+
+        if not rows:
+            return None
+        return DocumentRecord.model_validate(rows[0])
+
     def _ensure_schema(self) -> None:
         with self._connection_factory() as connection:
             connection.execute(
@@ -129,3 +182,20 @@ class PostgresDocumentMetadataStore:
         from psycopg.rows import dict_row
 
         return connect(self._database_url, row_factory=dict_row)
+
+
+def _document_columns() -> str:
+    return """
+                    document_id,
+                    workspace_id,
+                    workspace_name,
+                    filename,
+                    parser,
+                    character_count,
+                    text_preview,
+                    storage_key,
+                    indexing_job_id,
+                    indexing_status,
+                    chunk_count,
+                    uploaded_at
+    """

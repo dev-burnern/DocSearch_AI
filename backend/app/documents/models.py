@@ -28,3 +28,9 @@ class DocumentRecord(DocumentMetadata):
 class DocumentListResponse(BaseModel):
     documents: list[DocumentRecord]
     total: int
+
+
+class DocumentDeleteResponse(BaseModel):
+    document_id: str
+    workspace_id: str
+    deleted: bool

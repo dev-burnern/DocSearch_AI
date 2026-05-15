@@ -21,6 +21,9 @@ class StorageService(Protocol):
     def download_document(self, *, storage_key: str) -> bytes:
         ...
 
+    def delete_document(self, *, storage_key: str) -> None:
+        ...
+
 
 class MinioStorageService:
     def __init__(self, settings: Settings, client: Minio | None = None) -> None:
@@ -62,6 +65,12 @@ class MinioStorageService:
         finally:
             response.close()
             response.release_conn()
+
+    def delete_document(self, *, storage_key: str) -> None:
+        self._client.remove_object(
+            bucket_name=self._bucket,
+            object_name=storage_key,
+        )
 
     def _ensure_bucket(self) -> None:
         if not self._client.bucket_exists(self._bucket):
