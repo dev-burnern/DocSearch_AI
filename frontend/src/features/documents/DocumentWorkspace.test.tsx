@@ -21,6 +21,7 @@ describe("DocumentWorkspace", () => {
         indexing_status: "completed",
         chunk_count: 1,
       }),
+      listDocuments: vi.fn(),
     };
     const searchClient = {
       searchDocuments: vi.fn(),
@@ -60,6 +61,7 @@ describe("DocumentWorkspace", () => {
     const user = userEvent.setup();
     const documentClient = {
       uploadDocument: vi.fn(),
+      listDocuments: vi.fn(),
     };
     const searchClient = {
       searchDocuments: vi.fn().mockResolvedValue({
@@ -110,6 +112,7 @@ describe("DocumentWorkspace", () => {
     const user = userEvent.setup();
     const documentClient = {
       uploadDocument: vi.fn(),
+      listDocuments: vi.fn(),
     };
     const searchClient = {
       searchDocuments: vi.fn().mockResolvedValue({
@@ -131,5 +134,58 @@ describe("DocumentWorkspace", () => {
     await user.click(screen.getByRole("button", { name: /문서 검색/ }));
 
     expect(await screen.findByText("검색 결과가 없습니다.")).toBeInTheDocument();
+  });
+
+  it("업로드된 문서 목록을 조회하고 표시한다", async () => {
+    const user = userEvent.setup();
+    const documentClient = {
+      uploadDocument: vi.fn(),
+      listDocuments: vi.fn().mockResolvedValue({
+        total: 1,
+        documents: [
+          {
+            document_id: "doc-1",
+            workspace_id: "workspace-alpha",
+            workspace_name: "Workspace Alpha",
+            filename: "memo.txt",
+            parser: "text",
+            character_count: 15,
+            text_preview: "hello docsearch",
+            storage_key: "workspace-alpha/doc-1/memo.txt",
+            indexing_job_id: "job-1",
+            indexing_status: "completed",
+            chunk_count: 1,
+            uploaded_at: "2026-05-15T09:00:00Z",
+          },
+        ],
+      }),
+    };
+    const searchClient = {
+      searchDocuments: vi.fn(),
+    };
+
+    render(
+      <DocumentWorkspace
+        documentClient={documentClient}
+        searchClient={searchClient}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("API Key"), "local-dev-key");
+
+    const submit = screen.getByRole("button", { name: /문서 목록 조회/ });
+    expect(submit).toBeEnabled();
+    await user.click(submit);
+
+    await waitFor(() => {
+      expect(documentClient.listDocuments).toHaveBeenCalledWith({
+        apiKey: "local-dev-key",
+      });
+    });
+    expect(await screen.findByText("memo.txt")).toBeInTheDocument();
+    expect(screen.getByText("doc-1")).toBeInTheDocument();
+    expect(screen.getByText("completed")).toBeInTheDocument();
+    expect(screen.getByText("chunks 1")).toBeInTheDocument();
+    expect(screen.getByText("hello docsearch")).toBeInTheDocument();
   });
 });

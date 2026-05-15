@@ -112,6 +112,9 @@ class Settings(BaseModel):
     audit_log_backend: str = Field(
         default_factory=lambda: os.getenv("AUDIT_LOG_BACKEND", "inmemory"),
     )
+    document_metadata_backend: str = Field(
+        default_factory=lambda: os.getenv("DOCUMENT_METADATA_BACKEND", "inmemory"),
+    )
 
 
 @lru_cache(maxsize=1)

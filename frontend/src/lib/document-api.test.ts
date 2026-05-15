@@ -73,4 +73,51 @@ describe("createDocumentApiClient", () => {
       }),
     ).rejects.toThrow("Unsupported document type: .csv");
   });
+
+  it("문서 목록 API에 API Key를 포함해 조회 요청을 보낸다", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          documents: [
+            {
+              document_id: "doc-1",
+              workspace_id: "workspace-alpha",
+              workspace_name: "Workspace Alpha",
+              filename: "memo.txt",
+              parser: "text",
+              character_count: 15,
+              text_preview: "hello docsearch",
+              storage_key: "workspace-alpha/doc-1/memo.txt",
+              indexing_job_id: "job-1",
+              indexing_status: "completed",
+              chunk_count: 1,
+              uploaded_at: "2026-05-15T09:00:00Z",
+            },
+          ],
+          total: 1,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    const client = createDocumentApiClient({
+      baseUrl: "http://api.local/",
+      fetcher,
+    });
+
+    const response = await client.listDocuments({
+      apiKey: "local-dev-key",
+    });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://api.local/v1/documents",
+      expect.objectContaining({
+        method: "GET",
+        headers: {
+          "X-API-Key": "local-dev-key",
+        },
+      }),
+    );
+    expect(response.total).toBe(1);
+    expect(response.documents[0].filename).toBe("memo.txt");
+  });
 });

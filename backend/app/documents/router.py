@@ -1,12 +1,15 @@
 from functools import lru_cache
+from typing import Callable
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 
 from backend.app.auth.dependencies import require_workspace_context
 from backend.app.auth.models import WorkspaceContext
 from backend.app.core.config import Settings, get_settings
-from backend.app.documents.models import DocumentUploadResponse
+from backend.app.documents.models import DocumentListResponse, DocumentUploadResponse
+from backend.app.documents.postgres_store import PostgresDocumentMetadataStore
 from backend.app.documents.service import DocumentService
+from backend.app.documents.store import DocumentMetadataStore, InMemoryDocumentMetadataStore
 from backend.app.indexing.chunker import CharacterChunker
 from backend.app.indexing.embedder import DeterministicEmbedder
 from backend.app.indexing.pipeline import IndexingPipeline
@@ -27,6 +30,25 @@ def get_parser_registry() -> ParserRegistry:
 
 def get_runtime_settings() -> Settings:
     return get_settings()
+
+
+def create_document_metadata_store(
+    settings: Settings,
+    *,
+    connection_factory: Callable[[], object] | None = None,
+) -> DocumentMetadataStore:
+    if settings.document_metadata_backend == "postgres":
+        return PostgresDocumentMetadataStore(
+            database_url=settings.database_url,
+            connection_factory=connection_factory,
+        )
+
+    return InMemoryDocumentMetadataStore()
+
+
+@lru_cache(maxsize=1)
+def get_document_metadata_store() -> DocumentMetadataStore:
+    return create_document_metadata_store(get_settings())
 
 
 @lru_cache(maxsize=1)
@@ -95,11 +117,13 @@ def get_document_service(
     parser_registry: ParserRegistry = Depends(get_parser_registry),
     storage_service: StorageService = Depends(get_storage_service),
     job_queue: JobQueue = Depends(get_job_queue),
+    document_metadata_store: DocumentMetadataStore = Depends(get_document_metadata_store),
 ) -> DocumentService:
     return DocumentService(
         parser_registry=parser_registry,
         storage_service=storage_service,
         job_queue=job_queue,
+        document_metadata_store=document_metadata_store,
     )
 
 
@@ -125,3 +149,16 @@ async def upload_document(
                 "message": str(exc),
             },
         ) from exc
+
+
+@router.get("", response_model=DocumentListResponse)
+async def list_documents(
+    limit: int = Query(default=100, ge=1, le=200),
+    workspace_context: WorkspaceContext = Depends(require_workspace_context),
+    document_metadata_store: DocumentMetadataStore = Depends(get_document_metadata_store),
+) -> DocumentListResponse:
+    documents = document_metadata_store.list_documents(
+        workspace_id=workspace_context.workspace_id,
+        limit=limit,
+    )
+    return DocumentListResponse(documents=documents, total=len(documents))
