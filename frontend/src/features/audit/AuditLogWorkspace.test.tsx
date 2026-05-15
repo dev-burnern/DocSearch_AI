@@ -8,6 +8,7 @@ describe("AuditLogWorkspace", () => {
   it("API Key로 채팅 감사 로그를 조회하고 이벤트를 표시한다", async () => {
     const user = userEvent.setup();
     const client = {
+      exportChatEvents: vi.fn(),
       listChatEvents: vi.fn().mockResolvedValue({
         total: 1,
         events: [
@@ -70,6 +71,7 @@ describe("AuditLogWorkspace", () => {
   it("조회 결과가 비어 있으면 빈 상태를 보여준다", async () => {
     const user = userEvent.setup();
     const client = {
+      exportChatEvents: vi.fn(),
       listChatEvents: vi.fn().mockResolvedValue({ total: 0, events: [] }),
     };
 
@@ -84,6 +86,7 @@ describe("AuditLogWorkspace", () => {
   it("조회 실패 메시지를 보여준다", async () => {
     const user = userEvent.setup();
     const client = {
+      exportChatEvents: vi.fn(),
       listChatEvents: vi.fn().mockRejectedValue(new Error("API key is invalid.")),
     };
 
@@ -98,6 +101,7 @@ describe("AuditLogWorkspace", () => {
   it("입력한 조회 필터를 감사 로그 API에 전달한다", async () => {
     const user = userEvent.setup();
     const client = {
+      exportChatEvents: vi.fn(),
       listChatEvents: vi.fn().mockResolvedValue({ total: 0, events: [] }),
     };
 
@@ -124,6 +128,43 @@ describe("AuditLogWorkspace", () => {
         occurredTo: "2026-05-15T10:00",
         limit: 20,
       });
+    });
+  });
+
+  it("현재 필터로 감사 로그 CSV를 내보낸다", async () => {
+    const user = userEvent.setup();
+    const downloadFile = vi.fn();
+    const client = {
+      listChatEvents: vi.fn().mockResolvedValue({ total: 0, events: [] }),
+      exportChatEvents: vi.fn().mockResolvedValue({
+        filename: "chat-audit-logs-20260515.csv",
+        content: "이벤트 ID,질문\r\nevent-1,정책 질문\r\n",
+        contentType: "text/csv; charset=utf-8",
+      }),
+    };
+
+    render(<AuditLogWorkspace client={client} downloadFile={downloadFile} />);
+
+    await user.type(screen.getByLabelText("API Key"), "local-dev-key");
+    await user.type(screen.getByLabelText("검색어"), "정책");
+    await user.type(screen.getByLabelText("문서 ID"), "doc-1");
+    await user.clear(screen.getByLabelText("조회 개수"));
+    await user.type(screen.getByLabelText("조회 개수"), "20");
+
+    await user.click(screen.getByRole("button", { name: /CSV 내보내기/ }));
+
+    await waitFor(() => {
+      expect(client.exportChatEvents).toHaveBeenCalledWith({
+        apiKey: "local-dev-key",
+        query: "정책",
+        documentId: "doc-1",
+        limit: 20,
+      });
+    });
+    expect(downloadFile).toHaveBeenCalledWith({
+      filename: "chat-audit-logs-20260515.csv",
+      content: "이벤트 ID,질문\r\nevent-1,정책 질문\r\n",
+      contentType: "text/csv; charset=utf-8",
     });
   });
 });

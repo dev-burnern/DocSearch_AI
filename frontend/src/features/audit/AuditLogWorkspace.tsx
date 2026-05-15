@@ -1,4 +1,4 @@
-import { ReloadOutlined } from "@ant-design/icons";
+import { DownloadOutlined, ReloadOutlined } from "@ant-design/icons";
 import {
   Alert,
   Button,
@@ -15,6 +15,7 @@ import { useMemo, useState } from "react";
 
 import {
   AuditLogClient,
+  AuditLogExportResponse,
   ChatAuditEvent,
   ChatAuditEventListResponse,
   createAuditLogApiClient,
@@ -24,9 +25,13 @@ const { Paragraph, Text, Title } = Typography;
 
 interface AuditLogWorkspaceProps {
   client?: AuditLogClient;
+  downloadFile?: (file: AuditLogExportResponse) => void;
 }
 
-export function AuditLogWorkspace({ client }: AuditLogWorkspaceProps) {
+export function AuditLogWorkspace({
+  client,
+  downloadFile = downloadTextFile,
+}: AuditLogWorkspaceProps) {
   const auditLogClient = useMemo(
     () => client ?? createAuditLogApiClient(),
     [client],
@@ -36,7 +41,9 @@ export function AuditLogWorkspace({ client }: AuditLogWorkspaceProps) {
     null,
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [query, setQuery] = useState("");
   const [documentId, setDocumentId] = useState("");
   const [requestId, setRequestId] = useState("");
@@ -44,7 +51,9 @@ export function AuditLogWorkspace({ client }: AuditLogWorkspaceProps) {
   const [occurredTo, setOccurredTo] = useState("");
   const [limit, setLimit] = useState(100);
 
-  const canSubmit = apiKey.trim().length > 0 && !isLoading;
+  const hasApiKey = apiKey.trim().length > 0;
+  const canSubmit = hasApiKey && !isLoading;
+  const canExport = hasApiKey && !isExporting;
 
   async function loadAuditLogs() {
     if (!canSubmit) {
@@ -53,17 +62,12 @@ export function AuditLogWorkspace({ client }: AuditLogWorkspaceProps) {
 
     setIsLoading(true);
     setErrorMessage(null);
+    setExportMessage(null);
 
     try {
-      const nextResponse = await auditLogClient.listChatEvents({
-        apiKey: apiKey.trim(),
-        query: normalizeOptionalText(query),
-        documentId: normalizeOptionalText(documentId),
-        requestId: normalizeOptionalText(requestId),
-        occurredFrom: normalizeOptionalText(occurredFrom),
-        occurredTo: normalizeOptionalText(occurredTo),
-        limit: limit === 100 ? undefined : limit,
-      });
+      const nextResponse = await auditLogClient.listChatEvents(
+        buildAuditLogRequest(),
+      );
       setResponse(nextResponse);
     } catch (error) {
       setResponse(null);
@@ -73,6 +77,41 @@ export function AuditLogWorkspace({ client }: AuditLogWorkspaceProps) {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function exportAuditLogs() {
+    if (!canExport) {
+      return;
+    }
+
+    setIsExporting(true);
+    setErrorMessage(null);
+    setExportMessage(null);
+
+    try {
+      const file = await auditLogClient.exportChatEvents(buildAuditLogRequest());
+      downloadFile(file);
+      setExportMessage("CSV 파일을 생성했습니다.");
+    } catch (error) {
+      setExportMessage(null);
+      setErrorMessage(
+        error instanceof Error ? error.message : "감사 로그 내보내기에 실패했습니다.",
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
+  function buildAuditLogRequest() {
+    return {
+      apiKey: apiKey.trim(),
+      query: normalizeOptionalText(query),
+      documentId: normalizeOptionalText(documentId),
+      requestId: normalizeOptionalText(requestId),
+      occurredFrom: normalizeOptionalText(occurredFrom),
+      occurredTo: normalizeOptionalText(occurredTo),
+      limit: limit === 100 ? undefined : limit,
+    };
   }
 
   const events = response?.events ?? [];
@@ -155,15 +194,26 @@ export function AuditLogWorkspace({ client }: AuditLogWorkspaceProps) {
             onChange={(value) => setLimit(value ?? 100)}
           />
 
-          <Button
-            type="primary"
-            htmlType="submit"
-            icon={<ReloadOutlined />}
-            loading={isLoading}
-            disabled={!canSubmit}
-          >
-            로그 조회
-          </Button>
+          <Space wrap>
+            <Button
+              type="primary"
+              htmlType="submit"
+              icon={<ReloadOutlined />}
+              loading={isLoading}
+              disabled={!canSubmit}
+            >
+              로그 조회
+            </Button>
+            <Button
+              htmlType="button"
+              icon={<DownloadOutlined />}
+              loading={isExporting}
+              disabled={!canExport}
+              onClick={() => void exportAuditLogs()}
+            >
+              CSV 내보내기
+            </Button>
+          </Space>
         </form>
       </Card>
 
@@ -183,6 +233,10 @@ export function AuditLogWorkspace({ client }: AuditLogWorkspaceProps) {
 
           {errorMessage ? (
             <Alert type="error" message={errorMessage} showIcon />
+          ) : null}
+
+          {exportMessage ? (
+            <Alert type="success" message={exportMessage} showIcon />
           ) : null}
 
           {response && events.length === 0 ? (
@@ -205,6 +259,18 @@ export function AuditLogWorkspace({ client }: AuditLogWorkspaceProps) {
 function normalizeOptionalText(value: string): string | undefined {
   const trimmedValue = value.trim();
   return trimmedValue ? trimmedValue : undefined;
+}
+
+function downloadTextFile(file: AuditLogExportResponse) {
+  const blob = new Blob([file.content], { type: file.contentType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = file.filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function AuditLogEventItem({ event }: { event: ChatAuditEvent }) {

@@ -43,8 +43,15 @@ export interface ChatAuditEventListResponse {
   total: number;
 }
 
+export interface AuditLogExportResponse {
+  filename: string;
+  content: string;
+  contentType: string;
+}
+
 export interface AuditLogClient {
   listChatEvents(payload: AuditLogRequest): Promise<ChatAuditEventListResponse>;
+  exportChatEvents(payload: AuditLogRequest): Promise<AuditLogExportResponse>;
 }
 
 type Fetcher = (input: string, init: RequestInit) => Promise<Response>;
@@ -90,6 +97,30 @@ export function createAuditLogApiClient(
       }
 
       return (await response.json()) as ChatAuditEventListResponse;
+    },
+    async exportChatEvents(
+      payload: AuditLogRequest,
+    ): Promise<AuditLogExportResponse> {
+      const response = await fetcher(
+        `${baseUrl}/v1/audit-logs/chat/export${buildQueryString(payload)}`,
+        {
+          method: "GET",
+          headers: {
+            "X-API-Key": payload.apiKey,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new AuditLogApiError(await readErrorMessage(response));
+      }
+
+      return {
+        filename: readFilename(response.headers.get("Content-Disposition")),
+        content: await response.text(),
+        contentType:
+          response.headers.get("Content-Type") ?? "text/csv; charset=utf-8",
+      };
     },
   };
 }
@@ -145,4 +176,18 @@ async function readErrorMessage(response: Response): Promise<string> {
   }
 
   return fallback;
+}
+
+function readFilename(contentDisposition: string | null): string {
+  if (!contentDisposition) {
+    return "chat-audit-logs.csv";
+  }
+
+  const quotedFilename = /filename="([^"]+)"/.exec(contentDisposition);
+  if (quotedFilename) {
+    return quotedFilename[1];
+  }
+
+  const plainFilename = /filename=([^;]+)/.exec(contentDisposition);
+  return plainFilename?.[1]?.trim() || "chat-audit-logs.csv";
 }
