@@ -140,6 +140,10 @@ function OperationsSummary({ response }: { response: OperationsStatusResponse })
           rate limit {response.settings.rate_limit.requests}/
           {response.settings.rate_limit.window_seconds}s
         </Tag>
+        <Tag>rate backend {response.settings.rate_limit.backend}</Tag>
+        <Tag color={response.settings.rate_limit.fail_open ? "blue" : "orange"}>
+          fail-open {response.settings.rate_limit.fail_open ? "on" : "off"}
+        </Tag>
       </Space>
 
       <Card size="small" title="런타임 설정" variant="borderless">
