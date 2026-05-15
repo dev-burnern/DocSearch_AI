@@ -32,4 +32,19 @@ describe("App", () => {
       screen.getByRole("button", { name: /로그 조회/ }),
     ).toBeDisabled();
   });
+
+  it("문서 탭으로 전환한다", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(screen.getByRole("tab", { name: "문서" }));
+
+    expect(
+      screen.getByRole("heading", { name: "문서 업로드" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /문서 업로드/ }),
+    ).toBeDisabled();
+  });
 });
