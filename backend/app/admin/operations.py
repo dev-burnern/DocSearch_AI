@@ -19,8 +19,10 @@ class OperationsWorkspaceSummary(BaseModel):
 
 class RateLimitSettingsSummary(BaseModel):
     enabled: bool
+    backend: str
     requests: int
     window_seconds: int
+    fail_open: bool
 
 
 class BackendSettingsSummary(BaseModel):
@@ -85,8 +87,10 @@ def _build_settings_summary(settings: Settings) -> OperationsSettingsSummary:
         dependency_health_timeout_seconds=settings.dependency_health_timeout_seconds,
         rate_limit=RateLimitSettingsSummary(
             enabled=settings.rate_limit_enabled,
+            backend=settings.rate_limit_backend,
             requests=settings.rate_limit_requests,
             window_seconds=settings.rate_limit_window_seconds,
+            fail_open=settings.rate_limit_fail_open,
         ),
         backends=BackendSettingsSummary(
             audit_log=settings.audit_log_backend,

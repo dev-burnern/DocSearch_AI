@@ -3,7 +3,12 @@ import pytest
 
 from backend.app.core.config import get_settings
 from backend.app.main import create_app
-from backend.app.middleware.rate_limit import RateLimiter
+from backend.app.middleware.rate_limit import (
+    RateLimitBackendUnavailable,
+    RateLimitMiddleware,
+    RateLimiter,
+    RedisRateLimitStore,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -46,6 +51,88 @@ def test_rate_limiter_allows_bucket_after_window_expires() -> None:
 
     assert decision.allowed is True
     assert decision.remaining == 0
+
+
+def test_redis_rate_limit_store_allows_request_with_hashed_bucket_key() -> None:
+    redis_client = FakeRedisClient(result=[1, 1, 1000000])
+    store = RedisRateLimitStore(
+        redis_client=redis_client,
+        limit=2,
+        window_seconds=60,
+        key_prefix="docsearch:test",
+        now=lambda: 1000.0,
+        member_factory=lambda: "member-1",
+    )
+
+    decision = store.check("api_key:secret-key")
+
+    assert decision.allowed is True
+    assert decision.remaining == 1
+    assert decision.reset_after_seconds == 60
+    assert redis_client.calls[0]["key"].startswith("docsearch:test:")
+    assert "secret-key" not in redis_client.calls[0]["key"]
+    assert redis_client.calls[0]["args"] == (
+        1000000,
+        60000,
+        2,
+        "member-1",
+    )
+
+
+def test_redis_rate_limit_store_blocks_after_limit() -> None:
+    redis_client = FakeRedisClient(result=[0, 2, 1000000])
+    store = RedisRateLimitStore(
+        redis_client=redis_client,
+        limit=2,
+        window_seconds=60,
+        key_prefix="docsearch:test",
+        now=lambda: 1030.0,
+        member_factory=lambda: "member-3",
+    )
+
+    decision = store.check("api_key:secret-key")
+
+    assert decision.allowed is False
+    assert decision.remaining == 0
+    assert decision.retry_after_seconds == 30
+    assert decision.reset_after_seconds == 30
+
+
+def test_redis_rate_limit_store_wraps_backend_errors() -> None:
+    store = RedisRateLimitStore(
+        redis_client=FailingRedisClient(),
+        limit=2,
+        window_seconds=60,
+        key_prefix="docsearch:test",
+        now=lambda: 1000.0,
+        member_factory=lambda: "member-1",
+    )
+
+    with pytest.raises(RateLimitBackendUnavailable):
+        store.check("api_key:secret-key")
+
+
+def test_rate_limit_middleware_fails_open_when_backend_is_unavailable() -> None:
+    from fastapi import FastAPI
+
+    app = FastAPI()
+    app.add_middleware(
+        RateLimitMiddleware,
+        settings=FailOpenSettings(),
+        store=UnavailableRateLimitStore(),
+    )
+
+    @app.get("/v1/ping")
+    async def ping() -> dict[str, str]:
+        return {"status": "ok"}
+
+    client = TestClient(app)
+
+    response = client.get("/v1/ping")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+    assert response.headers["X-RateLimit-Backend"] == "unavailable"
 
 
 def test_v1_routes_are_limited_by_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -114,3 +201,40 @@ def test_operational_routes_are_not_rate_limited(
     assert first.status_code == 200
     assert second.status_code == 200
     assert "X-RateLimit-Limit" not in second.headers
+
+
+class FakeRedisClient:
+    def __init__(self, *, result: list[int]) -> None:
+        self._result = result
+        self.calls: list[dict[str, object]] = []
+
+    def eval(self, script, numkeys, key, *args):
+        self.calls.append(
+            {
+                "script": script,
+                "numkeys": numkeys,
+                "key": key,
+                "args": args,
+            }
+        )
+        return self._result
+
+
+class FailingRedisClient:
+    def eval(self, script, numkeys, key, *args):
+        raise RuntimeError("redis unavailable")
+
+
+class UnavailableRateLimitStore:
+    def check(self, bucket_key: str):
+        raise RateLimitBackendUnavailable("redis unavailable")
+
+
+class FailOpenSettings:
+    rate_limit_enabled = True
+    rate_limit_backend = "redis"
+    rate_limit_requests = 1
+    rate_limit_window_seconds = 60
+    rate_limit_redis_prefix = "docsearch:test"
+    rate_limit_fail_open = True
+    redis_url = "redis://redis:6379/0"
