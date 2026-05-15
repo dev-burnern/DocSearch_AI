@@ -110,7 +110,7 @@ def test_감사로그_내보내기_API가_워크스페이스와_필터를_적용
 ) -> None:
     monkeypatch.setenv(
         "DOCSEARCH_API_KEYS",
-        "local-dev-key|workspace-alpha|Workspace Alpha",
+        "admin-key|workspace-alpha|Workspace Alpha|admin",
     )
     store = InMemoryAuditLogStore()
     store.record_chat_event(_event(question="정책 문서 요약해줘"))
@@ -133,7 +133,7 @@ def test_감사로그_내보내기_API가_워크스페이스와_필터를_적용
     response = client.get(
         "/v1/audit-logs/chat/export",
         params={"query": "정책", "limit": "20"},
-        headers={"X-API-Key": "local-dev-key"},
+        headers={"X-API-Key": "admin-key"},
     )
 
     assert response.status_code == 200
@@ -144,3 +144,33 @@ def test_감사로그_내보내기_API가_워크스페이스와_필터를_적용
     assert len(rows) == 1
     assert rows[0]["요청 ID"] == "request-1"
     assert rows[0]["워크스페이스 ID"] == "workspace-alpha"
+
+
+def test_감사로그_내보내기_API는_일반_사용자_접근을_거부한다(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DOCSEARCH_API_KEYS",
+        "member-key|workspace-alpha|Workspace Alpha|member",
+    )
+    store = InMemoryAuditLogStore()
+    store.record_chat_event(_event(question="정책 문서 요약해줘"))
+
+    from backend.app.audit.router import get_audit_log_store
+
+    app = create_app()
+    app.dependency_overrides[get_audit_log_store] = lambda: store
+    client = TestClient(app)
+
+    response = client.get(
+        "/v1/audit-logs/chat/export",
+        headers={"X-API-Key": "member-key"},
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": {
+            "code": "AUTH_FORBIDDEN_ROLE",
+            "message": "Admin role is required.",
+        }
+    }

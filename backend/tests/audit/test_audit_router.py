@@ -21,7 +21,7 @@ def test_감사로그_API가_워크스페이스_이벤트만_반환한다(
 ) -> None:
     monkeypatch.setenv(
         "DOCSEARCH_API_KEYS",
-        "local-dev-key|workspace-alpha|Workspace Alpha",
+        "admin-key|workspace-alpha|Workspace Alpha|admin",
     )
     store = InMemoryAuditLogStore()
     store.record_chat_event(
@@ -80,7 +80,7 @@ def test_감사로그_API가_워크스페이스_이벤트만_반환한다(
 
     response = client.get(
         "/v1/audit-logs/chat",
-        headers={"X-API-Key": "local-dev-key"},
+        headers={"X-API-Key": "admin-key"},
     )
 
     assert response.status_code == 200
@@ -114,7 +114,7 @@ def test_감사로그_API가_쿼리_필터를_저장소로_전달한다(
 ) -> None:
     monkeypatch.setenv(
         "DOCSEARCH_API_KEYS",
-        "local-dev-key|workspace-alpha|Workspace Alpha",
+        "admin-key|workspace-alpha|Workspace Alpha|admin",
     )
     store = CapturingAuditLogStore()
 
@@ -134,7 +134,7 @@ def test_감사로그_API가_쿼리_필터를_저장소로_전달한다(
             "to": "2026-05-15T10:00:00Z",
             "limit": "20",
         },
-        headers={"X-API-Key": "local-dev-key"},
+        headers={"X-API-Key": "admin-key"},
     )
 
     assert response.status_code == 200
@@ -146,3 +146,33 @@ def test_감사로그_API가_쿼리_필터를_저장소로_전달한다(
         occurred_to=datetime(2026, 5, 15, 10, 0, tzinfo=UTC),
         limit=20,
     )
+
+
+def test_감사로그_API는_일반_사용자_접근을_거부한다(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DOCSEARCH_API_KEYS",
+        "member-key|workspace-alpha|Workspace Alpha|member",
+    )
+    store = CapturingAuditLogStore()
+
+    from backend.app.audit.router import get_audit_log_store
+
+    app = create_app()
+    app.dependency_overrides[get_audit_log_store] = lambda: store
+    client = TestClient(app)
+
+    response = client.get(
+        "/v1/audit-logs/chat",
+        headers={"X-API-Key": "member-key"},
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": {
+            "code": "AUTH_FORBIDDEN_ROLE",
+            "message": "Admin role is required.",
+        }
+    }
+    assert store.filters is None
