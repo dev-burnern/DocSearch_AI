@@ -4,7 +4,8 @@ import os
 from pydantic import BaseModel, Field
 
 
-DEFAULT_API_KEYS = "local-dev-key|local-workspace|Local Workspace"
+DEFAULT_API_KEY = "local-dev-key"
+DEFAULT_API_KEYS = f"{DEFAULT_API_KEY}|local-workspace|Local Workspace"
 
 
 def _bool_env(name: str, default: bool) -> bool:

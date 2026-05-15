@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from backend.app.core.config import DEFAULT_API_KEYS, Settings
+from backend.app.core.config import DEFAULT_API_KEY, Settings
 
 
 OperationalStatus = Literal["ready", "not_ready"]
@@ -46,7 +46,7 @@ def _collect_configuration_checks(settings: Settings) -> list[OperationalCheck]:
 
     checks: list[OperationalCheck] = []
 
-    if settings.api_keys.strip() == DEFAULT_API_KEYS:
+    if _uses_development_api_key(settings.api_keys):
         checks.append(
             OperationalCheck(
                 name="api_keys",
@@ -78,3 +78,12 @@ def _collect_configuration_checks(settings: Settings) -> list[OperationalCheck]:
 
 def _is_production(settings: Settings) -> bool:
     return settings.app_env.strip().lower() == "production"
+
+
+def _uses_development_api_key(raw_api_keys: str) -> bool:
+    for entry in raw_api_keys.split(";"):
+        api_key = entry.split("|", maxsplit=1)[0].strip()
+        if api_key == DEFAULT_API_KEY:
+            return True
+
+    return False
