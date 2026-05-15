@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class AuditCitation(BaseModel):
@@ -32,6 +32,26 @@ class ChatAuditEvent(BaseModel):
     completion_tokens: int | None = None
     total_tokens: int | None = None
     citations: list[AuditCitation]
+
+
+class ChatAuditEventFilters(BaseModel):
+    query: str | None = None
+    document_id: str | None = None
+    request_id: str | None = None
+    event_type: str | None = None
+    occurred_from: datetime | None = None
+    occurred_to: datetime | None = None
+    limit: int = Field(default=100, ge=1, le=200)
+
+    @field_validator("occurred_from", "occurred_to")
+    @classmethod
+    def use_utc_for_naive_datetime(
+        cls,
+        value: datetime | None,
+    ) -> datetime | None:
+        if value is None or value.tzinfo is not None:
+            return value
+        return value.replace(tzinfo=UTC)
 
 
 class ChatAuditEventListResponse(BaseModel):

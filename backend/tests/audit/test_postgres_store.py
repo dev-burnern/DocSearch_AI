@@ -1,6 +1,8 @@
 import json
 
-from backend.app.audit.models import AuditCitation, ChatAuditEvent
+from datetime import timedelta
+
+from backend.app.audit.models import AuditCitation, ChatAuditEvent, ChatAuditEventFilters
 from backend.app.audit.postgres_store import PostgresAuditLogStore
 
 
@@ -102,3 +104,40 @@ def test_PostgresAuditLogStore가_jsonb_payload를_이벤트로_복원한다() -
     select_sql, select_params = connection.statements[-1]
     assert "WHERE workspace_id = %(workspace_id)s" in select_sql
     assert select_params == {"workspace_id": "workspace-alpha", "limit": 100}
+
+
+def test_PostgresAuditLogStore가_필터를_SQL_조건으로_전달한다() -> None:
+    event = _event()
+    connection = FakeConnection(
+        rows=[{"event_payload": event.model_dump(mode="json")}],
+    )
+    store = PostgresAuditLogStore(
+        database_url="postgresql://docsearch:docsearch@postgres:5432/docsearch",
+        connection_factory=lambda: connection,
+    )
+
+    events = store.list_chat_events(
+        workspace_id="workspace-alpha",
+        filters=ChatAuditEventFilters(
+            query="정책",
+            document_id="doc-1",
+            request_id="request-1",
+            occurred_from=event.occurred_at - timedelta(hours=1),
+            occurred_to=event.occurred_at + timedelta(hours=1),
+            limit=20,
+        ),
+    )
+
+    assert events == [event]
+    select_sql, select_params = connection.statements[-1]
+    assert "event_payload->>'question' ILIKE %(query_like)s" in select_sql
+    assert "event_payload->>'answer_preview' ILIKE %(query_like)s" in select_sql
+    assert "event_payload->'document_ids' ? %(document_id)s" in select_sql
+    assert "request_id = %(request_id)s" in select_sql
+    assert "occurred_at >= %(occurred_from)s" in select_sql
+    assert "occurred_at <= %(occurred_to)s" in select_sql
+    assert select_params is not None
+    assert select_params["query_like"] == "%정책%"
+    assert select_params["document_id"] == "doc-1"
+    assert select_params["request_id"] == "request-1"
+    assert select_params["limit"] == 20
