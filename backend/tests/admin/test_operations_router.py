@@ -60,8 +60,10 @@ def test_관리자_운영상태_API가_현재_운영_요약을_반환한다(
     assert body["settings"]["dependency_health_checks_enabled"] is True
     assert body["settings"]["rate_limit"] == {
         "enabled": True,
+        "backend": "memory",
         "requests": 30,
         "window_seconds": 10,
+        "fail_open": True,
     }
     assert body["settings"]["backends"] == {
         "audit_log": "inmemory",

@@ -62,6 +62,33 @@ def test_dependency_health_checker_checks_optional_backends_when_enabled() -> No
     assert called == ["redis", "reranker"]
 
 
+def test_dependency_health_checker_checks_redis_when_rate_limit_uses_redis() -> None:
+    called: list[str] = []
+
+    checker = DependencyHealthChecker(
+        postgres_probe=lambda settings, timeout: None,
+        qdrant_probe=lambda settings, timeout: None,
+        minio_probe=lambda settings, timeout: None,
+        vllm_probe=lambda settings, timeout: None,
+        redis_probe=lambda settings, timeout: called.append("redis"),
+    )
+    settings = Settings(
+        indexing_queue_backend="inprocess",
+        rate_limit_backend="redis",
+        reranker_backend="score",
+    )
+
+    checks = checker.check(settings)
+
+    assert [check.name for check in checks] == [
+        "qdrant",
+        "minio",
+        "vllm",
+        "redis",
+    ]
+    assert called == ["redis"]
+
+
 def test_dependency_health_checker_keeps_collecting_after_failure() -> None:
     def fail_postgres(settings: Settings, timeout: float) -> None:
         raise RuntimeError("connection refused")

@@ -51,7 +51,10 @@ class DependencyHealthChecker:
             ]
         )
 
-        if settings.indexing_queue_backend == "redis":
+        if (
+            settings.indexing_queue_backend == "redis"
+            or settings.rate_limit_backend == "redis"
+        ):
             checks.append(("redis", "Redis", self._redis_probe))
 
         if settings.reranker_backend == "bge":

@@ -1,5 +1,6 @@
 from functools import lru_cache
 import os
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -141,6 +142,9 @@ class Settings(BaseModel):
     rate_limit_enabled: bool = Field(
         default_factory=lambda: _bool_env("RATE_LIMIT_ENABLED", _is_production_env()),
     )
+    rate_limit_backend: Literal["memory", "redis"] = Field(
+        default_factory=lambda: os.getenv("RATE_LIMIT_BACKEND", "memory"),
+    )
     rate_limit_requests: int = Field(
         default_factory=lambda: int(os.getenv("RATE_LIMIT_REQUESTS", "120")),
         gt=0,
@@ -148,6 +152,15 @@ class Settings(BaseModel):
     rate_limit_window_seconds: int = Field(
         default_factory=lambda: int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60")),
         gt=0,
+    )
+    rate_limit_redis_prefix: str = Field(
+        default_factory=lambda: os.getenv(
+            "RATE_LIMIT_REDIS_PREFIX",
+            "docsearch:rate-limit",
+        ),
+    )
+    rate_limit_fail_open: bool = Field(
+        default_factory=lambda: _bool_env("RATE_LIMIT_FAIL_OPEN", True),
     )
 
 
