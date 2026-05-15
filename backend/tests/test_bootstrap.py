@@ -85,6 +85,30 @@ def test_ready_route_rejects_production_with_default_api_key(
     ]
 
 
+def test_ready_route_rejects_production_with_default_api_key_role_variant(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv(
+        "DOCSEARCH_API_KEYS",
+        "local-dev-key|local-workspace|Local Workspace|admin",
+    )
+
+    client = TestClient(create_app())
+
+    response = client.get("/ready")
+
+    assert response.status_code == 503
+    assert response.json()["status"] == "not_ready"
+    assert response.json()["checks"] == [
+        {
+            "name": "api_keys",
+            "status": "not_ready",
+            "message": "운영 환경에서는 개발 기본 API Key를 교체해야 합니다.",
+        }
+    ]
+
+
 def test_ready_route_rejects_production_debug_mode(
     monkeypatch: pytest.MonkeyPatch,
 ):

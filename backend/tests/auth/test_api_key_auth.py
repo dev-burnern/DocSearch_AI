@@ -61,3 +61,35 @@ def test_workspace_route_returns_request_context_for_valid_api_key(
     assert response.headers["X-Request-Id"] == response.json()["request_id"]
     assert response.json()["workspace_id"] == "workspace-alpha"
     assert response.json()["workspace_name"] == "Workspace Alpha"
+    assert response.json()["role"] == "member"
+
+
+def test_workspace_route_returns_admin_role_for_four_part_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DOCSEARCH_API_KEYS",
+        "admin-key|workspace-alpha|Workspace Alpha|admin",
+    )
+
+    client = TestClient(create_app())
+
+    response = client.get("/v1/workspace", headers={"X-API-Key": "admin-key"})
+
+    assert response.status_code == 200
+    assert response.json()["workspace_id"] == "workspace-alpha"
+    assert response.json()["workspace_name"] == "Workspace Alpha"
+    assert response.json()["role"] == "admin"
+
+
+def test_workspace_route_rejects_unknown_api_key_role(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DOCSEARCH_API_KEYS",
+        "admin-key|workspace-alpha|Workspace Alpha|owner",
+    )
+    client = TestClient(create_app())
+
+    with pytest.raises(ValueError, match="role"):
+        client.get("/v1/workspace", headers={"X-API-Key": "admin-key"})

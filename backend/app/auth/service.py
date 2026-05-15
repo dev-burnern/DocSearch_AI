@@ -1,6 +1,6 @@
 import secrets
 
-from backend.app.auth.models import ApiKeyRecord
+from backend.app.auth.models import MEMBER_ROLE, SUPPORTED_ROLES, ApiKeyRecord
 from backend.app.core.config import Settings
 
 
@@ -24,9 +24,14 @@ class AuthService:
                 continue
 
             parts = [part.strip() for part in normalized_entry.split("|")]
-            if len(parts) != 3:
+            if len(parts) not in {3, 4}:
                 raise ValueError(
-                    "DOCSEARCH_API_KEYS entries must use api_key|workspace_id|workspace_name format.",
+                    "DOCSEARCH_API_KEYS entries must use api_key|workspace_id|workspace_name(|role) format.",
+                )
+            role = parts[3] if len(parts) == 4 else MEMBER_ROLE
+            if role not in SUPPORTED_ROLES:
+                raise ValueError(
+                    "DOCSEARCH_API_KEYS role must be one of: admin, member.",
                 )
 
             records.append(
@@ -34,6 +39,7 @@ class AuthService:
                     api_key=parts[0],
                     workspace_id=parts[1],
                     workspace_name=parts[2],
+                    role=role,
                 ),
             )
 

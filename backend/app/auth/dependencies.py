@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException, Request, status
 
-from backend.app.auth.models import WorkspaceContext
+from backend.app.auth.models import ADMIN_ROLE, WorkspaceContext
 from backend.app.auth.service import AuthService
 from backend.app.core.config import get_settings
 
@@ -40,4 +40,20 @@ def require_workspace_context(
         request_id=request.state.request_context.request_id,
         workspace_id=record.workspace_id,
         workspace_name=record.workspace_name,
+        role=record.role,
     )
+
+
+def require_admin_workspace_context(
+    workspace_context: WorkspaceContext = Depends(require_workspace_context),
+) -> WorkspaceContext:
+    if workspace_context.role != ADMIN_ROLE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "AUTH_FORBIDDEN_ROLE",
+                "message": "Admin role is required.",
+            },
+        )
+
+    return workspace_context

@@ -24,6 +24,7 @@ services:
       APP_NAME: DocSearch AI
       APP_ENV: development
       DEBUG: "false"
+      DOCSEARCH_API_KEYS: "local-dev-key|local-workspace|Local Workspace|admin;local-member-key|local-workspace|Local Workspace|member"
       DATABASE_URL: postgresql://docsearch:docsearch@postgres:5432/docsearch
       AUDIT_LOG_BACKEND: postgres
       DOCUMENT_METADATA_BACKEND: postgres

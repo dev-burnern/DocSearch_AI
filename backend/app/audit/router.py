@@ -8,7 +8,7 @@ from backend.app.audit.export import build_chat_audit_csv
 from backend.app.audit.models import ChatAuditEventFilters, ChatAuditEventListResponse
 from backend.app.audit.postgres_store import PostgresAuditLogStore
 from backend.app.audit.store import AuditLogStore, InMemoryAuditLogStore
-from backend.app.auth.dependencies import require_workspace_context
+from backend.app.auth.dependencies import require_admin_workspace_context
 from backend.app.auth.models import WorkspaceContext
 from backend.app.core.config import Settings, get_settings
 
@@ -43,7 +43,7 @@ async def list_chat_audit_events(
     occurred_from: datetime | None = Query(default=None, alias="from"),
     occurred_to: datetime | None = Query(default=None, alias="to"),
     limit: int = Query(default=100, ge=1, le=200),
-    workspace_context: WorkspaceContext = Depends(require_workspace_context),
+    workspace_context: WorkspaceContext = Depends(require_admin_workspace_context),
     audit_log: AuditLogStore = Depends(get_audit_log_store),
 ) -> ChatAuditEventListResponse:
     filters = _build_chat_audit_filters(
@@ -69,7 +69,7 @@ async def export_chat_audit_events(
     occurred_from: datetime | None = Query(default=None, alias="from"),
     occurred_to: datetime | None = Query(default=None, alias="to"),
     limit: int = Query(default=100, ge=1, le=200),
-    workspace_context: WorkspaceContext = Depends(require_workspace_context),
+    workspace_context: WorkspaceContext = Depends(require_admin_workspace_context),
     audit_log: AuditLogStore = Depends(get_audit_log_store),
 ) -> Response:
     filters = _build_chat_audit_filters(
