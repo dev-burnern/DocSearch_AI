@@ -3,6 +3,7 @@ import pytest
 from qdrant_client import QdrantClient
 
 from backend.app.core.config import get_settings
+from backend.app.documents.store import InMemoryDocumentMetadataStore
 from backend.app.main import create_app
 
 
@@ -51,17 +52,31 @@ def storage() -> InMemoryStorage:
 
 
 @pytest.fixture
-def client(monkeypatch: pytest.MonkeyPatch, storage: InMemoryStorage) -> TestClient:
+def document_store() -> InMemoryDocumentMetadataStore:
+    return InMemoryDocumentMetadataStore()
+
+
+@pytest.fixture
+def client(
+    monkeypatch: pytest.MonkeyPatch,
+    storage: InMemoryStorage,
+    document_store: InMemoryDocumentMetadataStore,
+) -> TestClient:
     monkeypatch.setenv(
         "DOCSEARCH_API_KEYS",
         "local-dev-key|workspace-alpha|Workspace Alpha",
     )
 
-    from backend.app.documents.router import get_qdrant_store, get_storage_service
+    from backend.app.documents.router import (
+        get_document_metadata_store,
+        get_qdrant_store,
+        get_storage_service,
+    )
     from backend.app.retrieval.qdrant_store import QdrantVectorStore
 
     app = create_app()
     app.dependency_overrides[get_storage_service] = lambda: storage
+    app.dependency_overrides[get_document_metadata_store] = lambda: document_store
     app.dependency_overrides[get_qdrant_store] = lambda: QdrantVectorStore(
         client=QdrantClient(":memory:"),
         collection_name="docsearch_chunks",
@@ -74,6 +89,7 @@ def client(monkeypatch: pytest.MonkeyPatch, storage: InMemoryStorage) -> TestCli
 def test_문서_업로드가_저장소에_파일을_저장하고_메타데이터를_반환한다(
     client: TestClient,
     storage: InMemoryStorage,
+    document_store: InMemoryDocumentMetadataStore,
 ) -> None:
     response = client.post(
         "/v1/documents",
@@ -96,6 +112,11 @@ def test_문서_업로드가_저장소에_파일을_저장하고_메타데이터
     assert len(storage.saved) == 1
     assert storage.saved[0]["filename"] == "memo.txt"
     assert storage.saved[0]["data"] == b"hello docsearch"
+    records = document_store.list_documents(workspace_id="workspace-alpha")
+    assert len(records) == 1
+    assert records[0].document_id == response.json()["document_id"]
+    assert records[0].filename == "memo.txt"
+    assert records[0].chunk_count == 1
 
 
 def test_지원하지_않는_확장자는_거부한다(client: TestClient) -> None:

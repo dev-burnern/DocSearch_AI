@@ -1,7 +1,9 @@
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from backend.app.auth.models import WorkspaceContext
-from backend.app.documents.models import DocumentUploadResponse
+from backend.app.documents.models import DocumentRecord, DocumentUploadResponse
+from backend.app.documents.store import DocumentMetadataStore
 from backend.app.jobs.base import IndexDocumentJob, JobQueue
 from backend.app.parsers.base import ParserRegistry
 from backend.app.storage.minio import StorageService
@@ -13,10 +15,12 @@ class DocumentService:
         parser_registry: ParserRegistry,
         storage_service: StorageService,
         job_queue: JobQueue,
+        document_metadata_store: DocumentMetadataStore,
     ) -> None:
         self._parser_registry = parser_registry
         self._storage_service = storage_service
         self._job_queue = job_queue
+        self._document_metadata_store = document_metadata_store
 
     def upload_document(
         self,
@@ -48,7 +52,7 @@ class DocumentService:
             ),
         )
 
-        return DocumentUploadResponse(
+        response = DocumentUploadResponse(
             document_id=document_id,
             workspace_id=workspace_context.workspace_id,
             workspace_name=workspace_context.workspace_name,
@@ -61,3 +65,11 @@ class DocumentService:
             indexing_status=dispatch.status,
             chunk_count=dispatch.chunk_count,
         )
+        self._document_metadata_store.record_document(
+            DocumentRecord(
+                **response.model_dump(),
+                uploaded_at=datetime.now(UTC),
+            )
+        )
+
+        return response
