@@ -79,6 +79,13 @@ body {
   align-items: start;
 }
 
+.operations-workspace {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
 .document-workspace {
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
@@ -97,6 +104,10 @@ body {
 }
 
 .audit-main {
+  min-height: 560px;
+}
+
+.operations-main {
   min-height: 560px;
 }
 
@@ -181,6 +192,10 @@ body {
   border-top: 1px solid #e5e7eb;
 }
 
+.operations-check-list {
+  border-top: 1px solid #e5e7eb;
+}
+
 .audit-event-item {
   align-items: flex-start;
 }
@@ -198,6 +213,7 @@ body {
 
   .chat-workspace,
   .audit-workspace,
+  .operations-workspace,
   .document-workspace {
     grid-template-columns: 1fr;
   }

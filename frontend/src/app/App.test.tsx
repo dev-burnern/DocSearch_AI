@@ -36,6 +36,11 @@ describe("App", () => {
 
     expect(await screen.findByText("Workspace Alpha")).toBeInTheDocument();
     expect(screen.getByText("admin")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "운영 상태" }));
+
+    expect(
+      screen.getByRole("heading", { name: "운영 상태" }),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: "감사 로그" }));
 
     expect(
@@ -63,6 +68,7 @@ describe("App", () => {
 
     expect(await screen.findByText("Workspace Alpha")).toBeInTheDocument();
     expect(screen.getByText("member")).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "운영 상태" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "감사 로그" })).not.toBeInTheDocument();
   });
 
@@ -88,15 +94,16 @@ describe("App", () => {
     const apiKeyInput = screen.getByLabelText("공통 API Key");
     await user.type(apiKeyInput, "admin-key");
     await user.click(screen.getByRole("button", { name: /키 확인/ }));
-    await user.click(await screen.findByRole("tab", { name: "감사 로그" }));
+    await user.click(await screen.findByRole("tab", { name: "운영 상태" }));
     expect(
-      screen.getByRole("heading", { name: "채팅 감사 로그" }),
+      screen.getByRole("heading", { name: "운영 상태" }),
     ).toBeInTheDocument();
 
     await user.clear(apiKeyInput);
     await user.type(apiKeyInput, "member-key");
     await user.click(screen.getByRole("button", { name: /키 확인/ }));
 
+    expect(screen.queryByRole("tab", { name: "운영 상태" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "감사 로그" })).not.toBeInTheDocument();
     expect(screen.getByRole("tabpanel", { name: "채팅" })).toBeInTheDocument();
   });
