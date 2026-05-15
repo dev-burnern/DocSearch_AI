@@ -30,6 +30,8 @@ describe("createOperationsApiClient", () => {
               enabled: true,
               requests: 120,
               window_seconds: 60,
+              backend: "redis",
+              fail_open: true,
             },
             backends: {
               audit_log: "postgres",
@@ -65,6 +67,8 @@ describe("createOperationsApiClient", () => {
     );
     expect(response.status).toBe("ready");
     expect(response.settings.rate_limit.requests).toBe(120);
+    expect(response.settings.rate_limit.backend).toBe("redis");
+    expect(response.settings.rate_limit.fail_open).toBe(true);
   });
 
   it("오류 응답의 메시지를 예외로 변환한다", async () => {

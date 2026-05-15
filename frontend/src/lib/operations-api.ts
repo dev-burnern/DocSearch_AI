@@ -23,8 +23,10 @@ export interface OperationsSettingsSummary {
   dependency_health_timeout_seconds: number;
   rate_limit: {
     enabled: boolean;
+    backend: string;
     requests: number;
     window_seconds: number;
+    fail_open: boolean;
   };
   backends: {
     audit_log: string;

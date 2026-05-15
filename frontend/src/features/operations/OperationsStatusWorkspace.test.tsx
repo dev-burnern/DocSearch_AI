@@ -25,6 +25,8 @@ describe("OperationsStatusWorkspace", () => {
     expect(screen.getByText("Workspace Alpha")).toBeInTheDocument();
     expect(screen.getByText("development")).toBeInTheDocument();
     expect(screen.getByText("rate limit 120/60s")).toBeInTheDocument();
+    expect(screen.getByText("rate backend redis")).toBeInTheDocument();
+    expect(screen.getByText("fail-open on")).toBeInTheDocument();
     expect(screen.getByText("qdrant")).toBeInTheDocument();
     expect(screen.getByText("Qdrant 연결이 정상입니다.")).toBeInTheDocument();
     expect(screen.getByText("google/gemma-4-E4B-it")).toBeInTheDocument();
@@ -95,6 +97,8 @@ function buildOperationsResponse() {
         enabled: true,
         requests: 120,
         window_seconds: 60,
+        backend: "redis",
+        fail_open: true,
       },
       backends: {
         audit_log: "postgres",
