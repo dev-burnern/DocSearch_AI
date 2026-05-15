@@ -21,6 +21,9 @@ def test_settings_load_default_values():
     assert settings.redis_url == "redis://redis:6379/0"
     assert settings.dependency_health_checks_enabled is False
     assert settings.dependency_health_timeout_seconds == 2.0
+    assert settings.rate_limit_enabled is False
+    assert settings.rate_limit_requests == 120
+    assert settings.rate_limit_window_seconds == 60
 
 
 def test_settings_enable_dependency_health_checks_by_default_in_production(
@@ -32,6 +35,21 @@ def test_settings_enable_dependency_health_checks_by_default_in_production(
     settings = get_settings()
 
     assert settings.dependency_health_checks_enabled is True
+    assert settings.rate_limit_enabled is True
+
+
+def test_settings_allow_rate_limit_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+    monkeypatch.setenv("RATE_LIMIT_REQUESTS", "30")
+    monkeypatch.setenv("RATE_LIMIT_WINDOW_SECONDS", "10")
+
+    settings = get_settings()
+
+    assert settings.rate_limit_enabled is True
+    assert settings.rate_limit_requests == 30
+    assert settings.rate_limit_window_seconds == 10
 
 
 def test_settings_allow_dependency_health_timeout_override(
