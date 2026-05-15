@@ -4,6 +4,7 @@ from backend.app.audit.router import router as audit_router
 from backend.app.auth.dependencies import require_workspace_context
 from backend.app.auth.models import WorkspaceContext
 from backend.app.chat.router import router as chat_router
+from backend.app.core.dependency_health import DependencyHealthChecker
 from backend.app.core.operations import build_readiness_response
 from backend.app.documents.router import router as documents_router
 from backend.app.middleware.request_context import RequestContextMiddleware
@@ -24,6 +25,7 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RequestContextMiddleware)
+    app.state.dependency_health_checker = DependencyHealthChecker()
 
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -34,7 +36,10 @@ def create_app() -> FastAPI:
 
     @app.get("/ready")
     async def ready() -> JSONResponse:
-        readiness = build_readiness_response(settings)
+        readiness = build_readiness_response(
+            settings,
+            dependency_health_checker=app.state.dependency_health_checker,
+        )
         status_code = 200 if readiness.status == "ready" else 503
         return JSONResponse(
             status_code=status_code,

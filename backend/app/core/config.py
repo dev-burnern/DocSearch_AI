@@ -12,6 +12,10 @@ def _bool_env(name: str, default: bool) -> bool:
     return os.getenv(name, str(default)).lower() == "true"
 
 
+def _is_production_env() -> bool:
+    return os.getenv("APP_ENV", "development").strip().lower() == "production"
+
+
 def _optional_env(name: str) -> str | None:
     value = os.getenv(name)
     if value is None or value == "":
@@ -55,6 +59,9 @@ class Settings(BaseModel):
     )
     minio_secure: bool = Field(
         default_factory=lambda: _bool_env("MINIO_SECURE", False),
+    )
+    redis_url: str = Field(
+        default_factory=lambda: os.getenv("REDIS_URL", "redis://redis:6379/0"),
     )
     indexing_queue_backend: str = Field(
         default_factory=lambda: os.getenv("INDEXING_QUEUE_BACKEND", "inprocess"),
@@ -118,6 +125,18 @@ class Settings(BaseModel):
     )
     document_metadata_backend: str = Field(
         default_factory=lambda: os.getenv("DOCUMENT_METADATA_BACKEND", "inmemory"),
+    )
+    dependency_health_checks_enabled: bool = Field(
+        default_factory=lambda: _bool_env(
+            "DEPENDENCY_HEALTH_CHECKS_ENABLED",
+            _is_production_env(),
+        ),
+    )
+    dependency_health_timeout_seconds: float = Field(
+        default_factory=lambda: float(
+            os.getenv("DEPENDENCY_HEALTH_TIMEOUT_SECONDS", "2.0"),
+        ),
+        gt=0,
     )
 
 
