@@ -49,7 +49,7 @@ docker compose -f infra/compose/docker-compose.yml up --build
 
 ## 운영 상태 점검
 
-`/health`는 프로세스 생존 여부를 빠르게 반환하고, `/ready`는 운영 준비 상태를 반환합니다. `DEPENDENCY_HEALTH_CHECKS_ENABLED=true`이면 `/ready`에 PostgreSQL, Qdrant, MinIO, vLLM 연결 상태가 포함됩니다. Redis 큐와 BGE Reranker는 해당 백엔드가 활성화된 경우에만 점검합니다.
+`/health`는 프로세스 생존 여부를 빠르게 반환하고, `/ready`는 운영 준비 상태를 반환합니다. `DEPENDENCY_HEALTH_CHECKS_ENABLED=true`이면 `/ready`에 PostgreSQL, Qdrant, MinIO, vLLM 연결 상태가 포함됩니다. Redis 큐, Redis rate limit, BGE Reranker는 해당 백엔드가 활성화된 경우에만 점검합니다.
 
 개발 환경에서는 외부 점검이 기본 비활성화이고, 운영 환경에서는 기본 활성화됩니다. `DEPENDENCY_HEALTH_TIMEOUT_SECONDS`로 각 의존성 점검 타임아웃을 조정할 수 있습니다.
 
@@ -57,7 +57,7 @@ docker compose -f infra/compose/docker-compose.yml up --build
 
 `/v1/*` API는 API Key가 있으면 API Key 기준, 없으면 클라이언트 IP 기준으로 rate limit을 적용할 수 있습니다. 제한 초과 시 HTTP 429와 `Retry-After` 헤더를 반환합니다. `/health`, `/ready`, `/docs`, `/openapi.json` 같은 운영 점검과 문서 경로는 제한 대상에서 제외됩니다.
 
-개발 환경에서는 기본 비활성화이고, 운영 환경에서는 기본 활성화됩니다. `RATE_LIMIT_ENABLED`, `RATE_LIMIT_REQUESTS`, `RATE_LIMIT_WINDOW_SECONDS`로 활성화 여부와 제한량을 조정할 수 있습니다. 현재 구현은 단일 API 컨테이너 기준 인메모리 방식이며, 여러 API 인스턴스를 운영할 때는 Redis 기반 분산 제한으로 확장할 예정입니다.
+개발 환경에서는 기본 비활성화이고, 운영 환경에서는 기본 활성화됩니다. `RATE_LIMIT_ENABLED`, `RATE_LIMIT_BACKEND`, `RATE_LIMIT_REQUESTS`, `RATE_LIMIT_WINDOW_SECONDS`로 활성화 여부, 저장소, 제한량을 조정할 수 있습니다. `RATE_LIMIT_BACKEND=memory`는 단일 API 컨테이너용 인메모리 제한이고, `RATE_LIMIT_BACKEND=redis`는 여러 API 인스턴스가 같은 카운터를 공유하는 분산 제한입니다. Redis key에는 API Key 원문을 저장하지 않고 SHA-256 해시를 사용합니다. Redis 장애 시 기본값은 `RATE_LIMIT_FAIL_OPEN=true`라서 요청을 통과시키고 운영 화면에 backend 상태를 드러냅니다.
 
 ## 관리자 운영 상태
 
@@ -65,6 +65,6 @@ docker compose -f infra/compose/docker-compose.yml up --build
 
 ## 현재 범위
 
-현재 기준선에는 서비스 경계, 상태 확인 엔드포인트, 운영 준비 상태 진단, 외부 의존성 상태 점검, 기본 보안 응답 헤더, 운영 rate limit, 관리자 운영 상태 API와 화면, 로컬 실행 설정, CI, API Key 기반 워크스페이스/관리자 역할 인증, 문서 업로드, 문서 메타데이터 저장소와 목록 조회 API, 문서 삭제/재인덱싱 API, 개발용 인프로세스 인덱싱 큐, 청킹과 임베딩 파이프라인, Qdrant 기반 Dense retrieval, 워크스페이스 메타데이터 필터, 검색 API, BGE 호환 리랭커 경계, vLLM/OpenAI 호환 LLM 게이트웨이, 출처 포함 채팅 API, PostgreSQL 감사 로그 저장소, 관리자 전용 감사 로그 조회 필터와 CSV 내보내기, 프론트엔드 채팅 플로우, 관리자 역할 기반 화면 표시 조건, 감사 로그 조회/내보내기 화면, 문서 업로드/목록/검색/삭제/재인덱싱 화면이 포함되어 있습니다.
+현재 기준선에는 서비스 경계, 상태 확인 엔드포인트, 운영 준비 상태 진단, 외부 의존성 상태 점검, 기본 보안 응답 헤더, Redis 기반 분산 rate limit, 관리자 운영 상태 API와 화면, 로컬 실행 설정, CI, API Key 기반 워크스페이스/관리자 역할 인증, 문서 업로드, 문서 메타데이터 저장소와 목록 조회 API, 문서 삭제/재인덱싱 API, 개발용 인프로세스 인덱싱 큐, 청킹과 임베딩 파이프라인, Qdrant 기반 Dense retrieval, 워크스페이스 메타데이터 필터, 검색 API, BGE 호환 리랭커 경계, vLLM/OpenAI 호환 LLM 게이트웨이, 출처 포함 채팅 API, PostgreSQL 감사 로그 저장소, 관리자 전용 감사 로그 조회 필터와 CSV 내보내기, 프론트엔드 채팅 플로우, 관리자 역할 기반 화면 표시 조건, 감사 로그 조회/내보내기 화면, 문서 업로드/목록/검색/삭제/재인덱싱 화면이 포함되어 있습니다.
 
-다음 단계에서는 Redis 기반 분산 rate limit 전환과 운영 이벤트 알림을 검토합니다.
+다음 단계에서는 운영 이벤트 알림과 관리자 운영 화면의 실시간성 개선을 검토합니다.
