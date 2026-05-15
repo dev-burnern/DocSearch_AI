@@ -47,6 +47,24 @@ body {
   padding: 28px 32px 40px;
 }
 
+.workspace-auth {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.workspace-auth-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 320px) auto minmax(0, 1fr);
+  gap: 10px 12px;
+  align-items: end;
+}
+
+.workspace-auth-form .field-label {
+  grid-column: 1 / -1;
+}
+
 .chat-workspace {
   display: grid;
   grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
@@ -181,6 +199,10 @@ body {
   .chat-workspace,
   .audit-workspace,
   .document-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-auth-form {
     grid-template-columns: 1fr;
   }
 }

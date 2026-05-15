@@ -24,9 +24,10 @@ const { Paragraph, Text, Title } = Typography;
 
 interface ChatWorkspaceProps {
   client?: ChatClient;
+  apiKey?: string;
 }
 
-export function ChatWorkspace({ client }: ChatWorkspaceProps) {
+export function ChatWorkspace({ client, apiKey: confirmedApiKey }: ChatWorkspaceProps) {
   const chatClient = useMemo(() => client ?? createChatApiClient(), [client]);
   const [apiKey, setApiKey] = useState("");
   const [documentIds, setDocumentIds] = useState("");
@@ -36,8 +37,9 @@ export function ChatWorkspace({ client }: ChatWorkspaceProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const resolvedApiKey = confirmedApiKey ?? apiKey.trim();
   const canSubmit =
-    apiKey.trim().length > 0 && question.trim().length > 0 && !isSubmitting;
+    resolvedApiKey.length > 0 && question.trim().length > 0 && !isSubmitting;
 
   async function submitQuestion() {
     if (!canSubmit) {
@@ -49,7 +51,7 @@ export function ChatWorkspace({ client }: ChatWorkspaceProps) {
 
     try {
       const nextResponse = await chatClient.ask({
-        apiKey: apiKey.trim(),
+        apiKey: resolvedApiKey,
         question: question.trim(),
         documentIds: parseDocumentIds(documentIds),
         topK,
@@ -69,15 +71,19 @@ export function ChatWorkspace({ client }: ChatWorkspaceProps) {
     <section className="chat-workspace" aria-label="채팅 작업 화면">
       <Card className="chat-panel" title="질문 설정" variant="borderless">
         <form className="form-stack" onSubmit={(event) => event.preventDefault()}>
-          <label className="field-label" htmlFor="api-key">
-            API Key
-          </label>
-          <Input.Password
-            id="api-key"
-            autoComplete="off"
-            value={apiKey}
-            onChange={(event) => setApiKey(event.target.value)}
-          />
+          {confirmedApiKey ? null : (
+            <>
+              <label className="field-label" htmlFor="api-key">
+                API Key
+              </label>
+              <Input.Password
+                id="api-key"
+                autoComplete="off"
+                value={apiKey}
+                onChange={(event) => setApiKey(event.target.value)}
+              />
+            </>
+          )}
 
           <label className="field-label" htmlFor="document-ids">
             문서 ID
