@@ -7,6 +7,7 @@ from backend.app.chat.router import router as chat_router
 from backend.app.core.dependency_health import DependencyHealthChecker
 from backend.app.core.operations import build_readiness_response
 from backend.app.documents.router import router as documents_router
+from backend.app.middleware.rate_limit import RateLimitMiddleware
 from backend.app.middleware.request_context import RequestContextMiddleware
 from backend.app.middleware.security_headers import SecurityHeadersMiddleware
 from backend.app.search.router import router as search_router
@@ -23,6 +24,7 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         debug=settings.debug,
     )
+    app.add_middleware(RateLimitMiddleware, settings=settings)
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RequestContextMiddleware)
     app.state.dependency_health_checker = DependencyHealthChecker()

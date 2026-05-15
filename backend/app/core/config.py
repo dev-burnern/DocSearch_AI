@@ -138,6 +138,17 @@ class Settings(BaseModel):
         ),
         gt=0,
     )
+    rate_limit_enabled: bool = Field(
+        default_factory=lambda: _bool_env("RATE_LIMIT_ENABLED", _is_production_env()),
+    )
+    rate_limit_requests: int = Field(
+        default_factory=lambda: int(os.getenv("RATE_LIMIT_REQUESTS", "120")),
+        gt=0,
+    )
+    rate_limit_window_seconds: int = Field(
+        default_factory=lambda: int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60")),
+        gt=0,
+    )
 
 
 @lru_cache(maxsize=1)
