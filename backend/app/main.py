@@ -1,10 +1,13 @@
 from fastapi import Depends, FastAPI
+from fastapi.responses import JSONResponse
 from backend.app.audit.router import router as audit_router
 from backend.app.auth.dependencies import require_workspace_context
 from backend.app.auth.models import WorkspaceContext
 from backend.app.chat.router import router as chat_router
+from backend.app.core.operations import build_readiness_response
 from backend.app.documents.router import router as documents_router
 from backend.app.middleware.request_context import RequestContextMiddleware
+from backend.app.middleware.security_headers import SecurityHeadersMiddleware
 from backend.app.search.router import router as search_router
 
 from backend.app.core.config import get_settings
@@ -19,6 +22,7 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         debug=settings.debug,
     )
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RequestContextMiddleware)
 
     @app.get("/health")
@@ -29,11 +33,13 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/ready")
-    async def ready() -> dict[str, str]:
-        return {
-            "status": "ready",
-            "service": "docsearch-ai",
-        }
+    async def ready() -> JSONResponse:
+        readiness = build_readiness_response(settings)
+        status_code = 200 if readiness.status == "ready" else 503
+        return JSONResponse(
+            status_code=status_code,
+            content=readiness.model_dump(),
+        )
 
     @app.get("/v1/workspace")
     async def workspace(

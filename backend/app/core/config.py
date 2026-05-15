@@ -4,6 +4,9 @@ import os
 from pydantic import BaseModel, Field
 
 
+DEFAULT_API_KEYS = "local-dev-key|local-workspace|Local Workspace"
+
+
 def _bool_env(name: str, default: bool) -> bool:
     return os.getenv(name, str(default)).lower() == "true"
 
@@ -28,7 +31,7 @@ class Settings(BaseModel):
     api_keys: str = Field(
         default_factory=lambda: os.getenv(
             "DOCSEARCH_API_KEYS",
-            "local-dev-key|local-workspace|Local Workspace",
+            DEFAULT_API_KEYS,
         ),
     )
     database_url: str = Field(
