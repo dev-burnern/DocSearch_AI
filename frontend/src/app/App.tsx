@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ChatWorkspace } from "../features/chat/ChatWorkspace";
 import { AuditLogWorkspace } from "../features/audit/AuditLogWorkspace";
 import { DocumentWorkspace } from "../features/documents/DocumentWorkspace";
+import { OperationsStatusWorkspace } from "../features/operations/OperationsStatusWorkspace";
 import {
   WorkspaceClient,
   WorkspaceContext,
@@ -48,13 +49,16 @@ export default function App({ workspaceClient }: AppProps) {
       });
       setWorkspaceContext(nextContext);
       setConfirmedApiKey(apiKey.trim());
-      if (nextContext.role !== "admin" && activeTab === "audit") {
+      if (
+        nextContext.role !== "admin" &&
+        (activeTab === "audit" || activeTab === "operations")
+      ) {
         setActiveTab("chat");
       }
     } catch (error) {
       setWorkspaceContext(null);
       setConfirmedApiKey(null);
-      if (activeTab === "audit") {
+      if (activeTab === "audit" || activeTab === "operations") {
         setActiveTab("chat");
       }
       setWorkspaceError(
@@ -79,6 +83,11 @@ export default function App({ workspaceClient }: AppProps) {
   ];
 
   if (isAdmin) {
+    tabItems.push({
+      key: "operations",
+      label: "운영 상태",
+      children: <OperationsStatusWorkspace apiKey={sharedApiKey} />,
+    });
     tabItems.push({
       key: "audit",
       label: "감사 로그",
