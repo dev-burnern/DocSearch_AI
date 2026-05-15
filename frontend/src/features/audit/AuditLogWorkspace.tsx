@@ -26,11 +26,13 @@ const { Paragraph, Text, Title } = Typography;
 interface AuditLogWorkspaceProps {
   client?: AuditLogClient;
   downloadFile?: (file: AuditLogExportResponse) => void;
+  apiKey?: string;
 }
 
 export function AuditLogWorkspace({
   client,
   downloadFile = downloadTextFile,
+  apiKey: confirmedApiKey,
 }: AuditLogWorkspaceProps) {
   const auditLogClient = useMemo(
     () => client ?? createAuditLogApiClient(),
@@ -51,7 +53,8 @@ export function AuditLogWorkspace({
   const [occurredTo, setOccurredTo] = useState("");
   const [limit, setLimit] = useState(100);
 
-  const hasApiKey = apiKey.trim().length > 0;
+  const resolvedApiKey = confirmedApiKey ?? apiKey.trim();
+  const hasApiKey = resolvedApiKey.length > 0;
   const canSubmit = hasApiKey && !isLoading;
   const canExport = hasApiKey && !isExporting;
 
@@ -104,7 +107,7 @@ export function AuditLogWorkspace({
 
   function buildAuditLogRequest() {
     return {
-      apiKey: apiKey.trim(),
+      apiKey: resolvedApiKey,
       query: normalizeOptionalText(query),
       documentId: normalizeOptionalText(documentId),
       requestId: normalizeOptionalText(requestId),
@@ -126,15 +129,19 @@ export function AuditLogWorkspace({
             void loadAuditLogs();
           }}
         >
-          <label className="field-label" htmlFor="audit-api-key">
-            API Key
-          </label>
-          <Input.Password
-            id="audit-api-key"
-            autoComplete="off"
-            value={apiKey}
-            onChange={(event) => setApiKey(event.target.value)}
-          />
+          {confirmedApiKey ? null : (
+            <>
+              <label className="field-label" htmlFor="audit-api-key">
+                API Key
+              </label>
+              <Input.Password
+                id="audit-api-key"
+                autoComplete="off"
+                value={apiKey}
+                onChange={(event) => setApiKey(event.target.value)}
+              />
+            </>
+          )}
 
           <label className="field-label" htmlFor="audit-query">
             검색어

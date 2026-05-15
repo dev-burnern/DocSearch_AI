@@ -38,11 +38,13 @@ const { Paragraph, Text, Title } = Typography;
 interface DocumentWorkspaceProps {
   documentClient?: DocumentClient;
   searchClient?: SearchClient;
+  apiKey?: string;
 }
 
 export function DocumentWorkspace({
   documentClient,
   searchClient,
+  apiKey: confirmedApiKey,
 }: DocumentWorkspaceProps) {
   const resolvedDocumentClient = useMemo(
     () => documentClient ?? createDocumentApiClient(),
@@ -76,7 +78,7 @@ export function DocumentWorkspace({
     null,
   );
 
-  const trimmedApiKey = apiKey.trim();
+  const trimmedApiKey = confirmedApiKey ?? apiKey.trim();
   const canUpload = trimmedApiKey.length > 0 && file !== null && !isUploading;
   const canSearch =
     trimmedApiKey.length > 0 && query.trim().length > 0 && !isSearching;
@@ -217,15 +219,19 @@ export function DocumentWorkspace({
           <Title level={4} className="section-title">
             문서 업로드
           </Title>
-          <label className="field-label" htmlFor="document-api-key">
-            API Key
-          </label>
-          <Input.Password
-            id="document-api-key"
-            autoComplete="off"
-            value={apiKey}
-            onChange={(event) => setApiKey(event.target.value)}
-          />
+          {confirmedApiKey ? null : (
+            <>
+              <label className="field-label" htmlFor="document-api-key">
+                API Key
+              </label>
+              <Input.Password
+                id="document-api-key"
+                autoComplete="off"
+                value={apiKey}
+                onChange={(event) => setApiKey(event.target.value)}
+              />
+            </>
+          )}
 
           <label className="field-label" htmlFor="document-file">
             문서 파일
