@@ -6,9 +6,14 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from backend.app.auth.dependencies import require_workspace_context
 from backend.app.auth.models import WorkspaceContext
 from backend.app.core.config import Settings, get_settings
-from backend.app.documents.models import DocumentListResponse, DocumentUploadResponse
+from backend.app.documents.models import (
+    DocumentDeleteResponse,
+    DocumentListResponse,
+    DocumentRecord,
+    DocumentUploadResponse,
+)
 from backend.app.documents.postgres_store import PostgresDocumentMetadataStore
-from backend.app.documents.service import DocumentService
+from backend.app.documents.service import DocumentNotFoundError, DocumentService
 from backend.app.documents.store import DocumentMetadataStore, InMemoryDocumentMetadataStore
 from backend.app.indexing.chunker import CharacterChunker
 from backend.app.indexing.embedder import DeterministicEmbedder
@@ -118,12 +123,14 @@ def get_document_service(
     storage_service: StorageService = Depends(get_storage_service),
     job_queue: JobQueue = Depends(get_job_queue),
     document_metadata_store: DocumentMetadataStore = Depends(get_document_metadata_store),
+    vector_store: QdrantVectorStore = Depends(get_qdrant_store),
 ) -> DocumentService:
     return DocumentService(
         parser_registry=parser_registry,
         storage_service=storage_service,
         job_queue=job_queue,
         document_metadata_store=document_metadata_store,
+        vector_store=vector_store,
     )
 
 
@@ -162,3 +169,51 @@ async def list_documents(
         limit=limit,
     )
     return DocumentListResponse(documents=documents, total=len(documents))
+
+
+@router.delete("/{document_id}", response_model=DocumentDeleteResponse)
+async def delete_document(
+    document_id: str,
+    workspace_context: WorkspaceContext = Depends(require_workspace_context),
+    document_service: DocumentService = Depends(get_document_service),
+) -> DocumentDeleteResponse:
+    try:
+        return document_service.delete_document(
+            workspace_context=workspace_context,
+            document_id=document_id,
+        )
+    except DocumentNotFoundError as exc:
+        raise _document_not_found(document_id) from exc
+
+
+@router.post("/{document_id}/reindex", response_model=DocumentRecord)
+async def reindex_document(
+    document_id: str,
+    workspace_context: WorkspaceContext = Depends(require_workspace_context),
+    document_service: DocumentService = Depends(get_document_service),
+) -> DocumentRecord:
+    try:
+        return document_service.reindex_document(
+            workspace_context=workspace_context,
+            document_id=document_id,
+        )
+    except DocumentNotFoundError as exc:
+        raise _document_not_found(document_id) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "DOCUMENT_UNSUPPORTED_TYPE",
+                "message": str(exc),
+            },
+        ) from exc
+
+
+def _document_not_found(document_id: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail={
+            "code": "DOCUMENT_NOT_FOUND",
+            "message": f"Document not found: {document_id}",
+        },
+    )

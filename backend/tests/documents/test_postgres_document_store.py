@@ -87,3 +87,50 @@ def test_PostgresDocumentMetadataStore는_워크스페이스_문서를_최신순
     assert "WHERE workspace_id = %(workspace_id)s" in select_sql
     assert "ORDER BY uploaded_at DESC" in select_sql
     assert select_params == {"workspace_id": "workspace-alpha", "limit": 20}
+
+
+def test_PostgresDocumentMetadataStore는_문서를_조회한다() -> None:
+    record = _record()
+    connection = FakeConnection(rows=[record.model_dump(mode="python")])
+    store = PostgresDocumentMetadataStore(
+        database_url="postgresql://docsearch:docsearch@postgres:5432/docsearch",
+        connection_factory=lambda: connection,
+    )
+
+    found = store.get_document(
+        workspace_id="workspace-alpha",
+        document_id="doc-1",
+    )
+
+    assert found == record
+    select_sql, select_params = connection.statements[-1]
+    assert "WHERE workspace_id = %(workspace_id)s" in select_sql
+    assert "AND document_id = %(document_id)s" in select_sql
+    assert select_params == {
+        "workspace_id": "workspace-alpha",
+        "document_id": "doc-1",
+    }
+
+
+def test_PostgresDocumentMetadataStore는_문서를_삭제하고_삭제된_레코드를_반환한다() -> None:
+    record = _record()
+    connection = FakeConnection(rows=[record.model_dump(mode="python")])
+    store = PostgresDocumentMetadataStore(
+        database_url="postgresql://docsearch:docsearch@postgres:5432/docsearch",
+        connection_factory=lambda: connection,
+    )
+
+    deleted = store.delete_document(
+        workspace_id="workspace-alpha",
+        document_id="doc-1",
+    )
+
+    assert deleted == record
+    delete_sql, delete_params = connection.statements[-1]
+    assert "DELETE FROM document_metadata" in delete_sql
+    assert "RETURNING" in delete_sql
+    assert delete_params == {
+        "workspace_id": "workspace-alpha",
+        "document_id": "doc-1",
+    }
+    assert connection.commit_count == 2

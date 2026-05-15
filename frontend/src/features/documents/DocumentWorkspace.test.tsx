@@ -22,6 +22,8 @@ describe("DocumentWorkspace", () => {
         chunk_count: 1,
       }),
       listDocuments: vi.fn(),
+      deleteDocument: vi.fn(),
+      reindexDocument: vi.fn(),
     };
     const searchClient = {
       searchDocuments: vi.fn(),
@@ -62,6 +64,8 @@ describe("DocumentWorkspace", () => {
     const documentClient = {
       uploadDocument: vi.fn(),
       listDocuments: vi.fn(),
+      deleteDocument: vi.fn(),
+      reindexDocument: vi.fn(),
     };
     const searchClient = {
       searchDocuments: vi.fn().mockResolvedValue({
@@ -113,6 +117,8 @@ describe("DocumentWorkspace", () => {
     const documentClient = {
       uploadDocument: vi.fn(),
       listDocuments: vi.fn(),
+      deleteDocument: vi.fn(),
+      reindexDocument: vi.fn(),
     };
     const searchClient = {
       searchDocuments: vi.fn().mockResolvedValue({
@@ -159,6 +165,8 @@ describe("DocumentWorkspace", () => {
           },
         ],
       }),
+      deleteDocument: vi.fn(),
+      reindexDocument: vi.fn(),
     };
     const searchClient = {
       searchDocuments: vi.fn(),
@@ -187,5 +195,127 @@ describe("DocumentWorkspace", () => {
     expect(screen.getByText("completed")).toBeInTheDocument();
     expect(screen.getByText("chunks 1")).toBeInTheDocument();
     expect(screen.getByText("hello docsearch")).toBeInTheDocument();
+  });
+
+  it("문서 목록에서 문서를 삭제하고 목록에서 제거한다", async () => {
+    const user = userEvent.setup();
+    const documentClient = {
+      uploadDocument: vi.fn(),
+      listDocuments: vi.fn().mockResolvedValue({
+        total: 1,
+        documents: [
+          {
+            document_id: "doc-1",
+            workspace_id: "workspace-alpha",
+            workspace_name: "Workspace Alpha",
+            filename: "memo.txt",
+            parser: "text",
+            character_count: 15,
+            text_preview: "hello docsearch",
+            storage_key: "workspace-alpha/doc-1/memo.txt",
+            indexing_job_id: "job-1",
+            indexing_status: "completed",
+            chunk_count: 1,
+            uploaded_at: "2026-05-15T09:00:00Z",
+          },
+        ],
+      }),
+      deleteDocument: vi.fn().mockResolvedValue({
+        document_id: "doc-1",
+        workspace_id: "workspace-alpha",
+        deleted: true,
+      }),
+      reindexDocument: vi.fn(),
+    };
+    const searchClient = {
+      searchDocuments: vi.fn(),
+    };
+
+    render(
+      <DocumentWorkspace
+        documentClient={documentClient}
+        searchClient={searchClient}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("API Key"), "local-dev-key");
+    await user.click(screen.getByRole("button", { name: /문서 목록 조회/ }));
+    expect(await screen.findByText("memo.txt")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /삭제/ }));
+
+    await waitFor(() => {
+      expect(documentClient.deleteDocument).toHaveBeenCalledWith({
+        apiKey: "local-dev-key",
+        documentId: "doc-1",
+      });
+    });
+    expect(screen.queryByText("memo.txt")).not.toBeInTheDocument();
+    expect(screen.getByText("업로드된 문서가 없습니다.")).toBeInTheDocument();
+  });
+
+  it("문서 목록에서 문서를 재인덱싱하고 갱신된 상태를 표시한다", async () => {
+    const user = userEvent.setup();
+    const documentClient = {
+      uploadDocument: vi.fn(),
+      listDocuments: vi.fn().mockResolvedValue({
+        total: 1,
+        documents: [
+          {
+            document_id: "doc-1",
+            workspace_id: "workspace-alpha",
+            workspace_name: "Workspace Alpha",
+            filename: "memo.txt",
+            parser: "text",
+            character_count: 15,
+            text_preview: "hello docsearch",
+            storage_key: "workspace-alpha/doc-1/memo.txt",
+            indexing_job_id: "job-1",
+            indexing_status: "completed",
+            chunk_count: 1,
+            uploaded_at: "2026-05-15T09:00:00Z",
+          },
+        ],
+      }),
+      deleteDocument: vi.fn(),
+      reindexDocument: vi.fn().mockResolvedValue({
+        document_id: "doc-1",
+        workspace_id: "workspace-alpha",
+        workspace_name: "Workspace Alpha",
+        filename: "memo.txt",
+        parser: "text",
+        character_count: 15,
+        text_preview: "hello docsearch",
+        storage_key: "workspace-alpha/doc-1/memo.txt",
+        indexing_job_id: "job-2",
+        indexing_status: "completed",
+        chunk_count: 2,
+        uploaded_at: "2026-05-15T09:00:00Z",
+      }),
+    };
+    const searchClient = {
+      searchDocuments: vi.fn(),
+    };
+
+    render(
+      <DocumentWorkspace
+        documentClient={documentClient}
+        searchClient={searchClient}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("API Key"), "local-dev-key");
+    await user.click(screen.getByRole("button", { name: /문서 목록 조회/ }));
+    expect(await screen.findByText("chunks 1")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /재인덱싱/ }));
+
+    await waitFor(() => {
+      expect(documentClient.reindexDocument).toHaveBeenCalledWith({
+        apiKey: "local-dev-key",
+        documentId: "doc-1",
+      });
+    });
+    expect(await screen.findByText("chunks 2")).toBeInTheDocument();
   });
 });

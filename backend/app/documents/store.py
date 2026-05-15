@@ -8,6 +8,22 @@ class DocumentMetadataStore(Protocol):
     def record_document(self, record: DocumentRecord) -> None:
         raise NotImplementedError
 
+    def get_document(
+        self,
+        *,
+        workspace_id: str,
+        document_id: str,
+    ) -> DocumentRecord | None:
+        raise NotImplementedError
+
+    def delete_document(
+        self,
+        *,
+        workspace_id: str,
+        document_id: str,
+    ) -> DocumentRecord | None:
+        raise NotImplementedError
+
     def list_documents(
         self,
         *,
@@ -24,7 +40,62 @@ class InMemoryDocumentMetadataStore:
 
     def record_document(self, record: DocumentRecord) -> None:
         with self._lock:
+            self._records = [
+                current
+                for current in self._records
+                if not (
+                    current.workspace_id == record.workspace_id
+                    and current.document_id == record.document_id
+                )
+            ]
             self._records.append(record)
+
+    def get_document(
+        self,
+        *,
+        workspace_id: str,
+        document_id: str,
+    ) -> DocumentRecord | None:
+        with self._lock:
+            return next(
+                (
+                    record
+                    for record in self._records
+                    if record.workspace_id == workspace_id
+                    and record.document_id == document_id
+                ),
+                None,
+            )
+
+    def delete_document(
+        self,
+        *,
+        workspace_id: str,
+        document_id: str,
+    ) -> DocumentRecord | None:
+        with self._lock:
+            deleted = next(
+                (
+                    record
+                    for record in self._records
+                    if record.workspace_id == workspace_id
+                    and record.document_id == document_id
+                ),
+                None,
+            )
+            if deleted is None:
+                return None
+
+            self._records = [
+                record
+                for record in self._records
+                if not (
+                    record.workspace_id == workspace_id
+                    and record.document_id == document_id
+                )
+            ]
+
+        return deleted
 
     def list_documents(
         self,

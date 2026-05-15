@@ -50,3 +50,44 @@ def test_인메모리_문서_저장소는_조회_개수를_제한한다() -> Non
     records = store.list_documents(workspace_id="workspace-alpha", limit=1)
 
     assert [record.document_id for record in records] == ["doc-2"]
+
+
+def test_인메모리_문서_저장소는_문서를_조회하고_삭제한다() -> None:
+    store = InMemoryDocumentMetadataStore()
+    record = _record("doc-1")
+    store.record_document(record)
+
+    found = store.get_document(
+        workspace_id="workspace-alpha",
+        document_id="doc-1",
+    )
+    deleted = store.delete_document(
+        workspace_id="workspace-alpha",
+        document_id="doc-1",
+    )
+
+    assert found == record
+    assert deleted == record
+    assert store.get_document(
+        workspace_id="workspace-alpha",
+        document_id="doc-1",
+    ) is None
+
+
+def test_인메모리_문서_저장소는_같은_문서_ID를_업데이트한다() -> None:
+    store = InMemoryDocumentMetadataStore()
+    original = _record("doc-1")
+    updated = original.model_copy(
+        update={
+            "indexing_job_id": "job-2",
+            "indexing_status": "completed",
+            "chunk_count": 3,
+        }
+    )
+
+    store.record_document(original)
+    store.record_document(updated)
+
+    records = store.list_documents(workspace_id="workspace-alpha")
+
+    assert records == [updated]

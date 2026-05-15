@@ -96,6 +96,25 @@ class QdrantVectorStore:
             for point in points
         ]
 
+    def delete_document(
+        self,
+        *,
+        workspace_id: str,
+        document_id: str,
+    ) -> None:
+        self._client.delete(
+            collection_name=self._collection_name,
+            points_selector=models.FilterSelector(
+                filter=build_qdrant_filter(
+                    RetrievalFilter(
+                        workspace_id=workspace_id,
+                        document_ids=[document_id],
+                    )
+                ),
+            ),
+            wait=True,
+        )
+
     def _ensure_collection(self) -> None:
         if self._client.collection_exists(self._collection_name):
             return
