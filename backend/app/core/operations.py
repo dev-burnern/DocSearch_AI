@@ -3,6 +3,10 @@ from typing import Literal
 from pydantic import BaseModel
 
 from backend.app.core.config import DEFAULT_API_KEY, Settings
+from backend.app.core.dependency_health import (
+    DependencyCheckResult,
+    DependencyHealthChecker,
+)
 
 
 OperationalStatus = Literal["ready", "not_ready"]
@@ -20,8 +24,16 @@ class ReadinessResponse(BaseModel):
     checks: list[OperationalCheck]
 
 
-def build_readiness_response(settings: Settings) -> ReadinessResponse:
+def build_readiness_response(
+    settings: Settings,
+    *,
+    dependency_health_checker: DependencyHealthChecker | None = None,
+) -> ReadinessResponse:
     checks = _collect_configuration_checks(settings)
+    if _should_collect_dependency_checks(settings, checks):
+        checker = dependency_health_checker or DependencyHealthChecker()
+        checks.extend(_to_operational_checks(checker.check(settings)))
+
     status: OperationalStatus = (
         "ready"
         if all(check.status == "ready" for check in checks)
@@ -87,3 +99,26 @@ def _uses_development_api_key(raw_api_keys: str) -> bool:
             return True
 
     return False
+
+
+def _should_collect_dependency_checks(
+    settings: Settings,
+    checks: list[OperationalCheck],
+) -> bool:
+    if not settings.dependency_health_checks_enabled:
+        return False
+
+    return all(check.status == "ready" for check in checks)
+
+
+def _to_operational_checks(
+    dependency_checks: list[DependencyCheckResult],
+) -> list[OperationalCheck]:
+    return [
+        OperationalCheck(
+            name=check.name,
+            status=check.status,
+            message=check.message,
+        )
+        for check in dependency_checks
+    ]
