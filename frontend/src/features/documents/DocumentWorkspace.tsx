@@ -1,5 +1,7 @@
 import {
+  DeleteOutlined,
   SearchOutlined,
+  SyncOutlined,
   UnorderedListOutlined,
   UploadOutlined,
 } from "@ant-design/icons";
@@ -66,6 +68,13 @@ export function DocumentWorkspace({
     useState<DocumentListResponse | null>(null);
   const [listError, setListError] = useState<string | null>(null);
   const [isListing, setIsListing] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(
+    null,
+  );
+  const [reindexingDocumentId, setReindexingDocumentId] = useState<string | null>(
+    null,
+  );
 
   const trimmedApiKey = apiKey.trim();
   const canUpload = trimmedApiKey.length > 0 && file !== null && !isUploading;
@@ -137,6 +146,7 @@ export function DocumentWorkspace({
         apiKey: trimmedApiKey,
       });
       setDocumentList(nextList);
+      setActionError(null);
     } catch (error) {
       setDocumentList(null);
       setListError(
@@ -144,6 +154,53 @@ export function DocumentWorkspace({
       );
     } finally {
       setIsListing(false);
+    }
+  }
+
+  async function deleteDocument(record: DocumentRecord) {
+    if (!trimmedApiKey) {
+      return;
+    }
+
+    setDeletingDocumentId(record.document_id);
+    setActionError(null);
+
+    try {
+      await resolvedDocumentClient.deleteDocument({
+        apiKey: trimmedApiKey,
+        documentId: record.document_id,
+      });
+      setDocumentList((current) => removeDocument(current, record.document_id));
+      setDocumentIds((current) => removeDocumentId(current, record.document_id));
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "문서 삭제에 실패했습니다.",
+      );
+    } finally {
+      setDeletingDocumentId(null);
+    }
+  }
+
+  async function reindexDocument(record: DocumentRecord) {
+    if (!trimmedApiKey) {
+      return;
+    }
+
+    setReindexingDocumentId(record.document_id);
+    setActionError(null);
+
+    try {
+      const updatedRecord = await resolvedDocumentClient.reindexDocument({
+        apiKey: trimmedApiKey,
+        documentId: record.document_id,
+      });
+      setDocumentList((current) => upsertDocument(current, updatedRecord));
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "문서 재인덱싱에 실패했습니다.",
+      );
+    } finally {
+      setReindexingDocumentId(null);
     }
   }
 
@@ -222,12 +279,22 @@ export function DocumentWorkspace({
               <Alert type="error" message={listError} showIcon />
             ) : null}
 
+            {actionError ? (
+              <Alert type="error" message={actionError} showIcon />
+            ) : null}
+
             {documentList?.documents.length === 0 ? (
               <Empty description="업로드된 문서가 없습니다." />
             ) : null}
 
             {documentList && documentList.documents.length > 0 ? (
-              <DocumentList result={documentList} />
+              <DocumentList
+                result={documentList}
+                deletingDocumentId={deletingDocumentId}
+                reindexingDocumentId={reindexingDocumentId}
+                onDelete={(record) => void deleteDocument(record)}
+                onReindex={(record) => void reindexDocument(record)}
+              />
             ) : null}
           </section>
 
@@ -316,7 +383,21 @@ function UploadResult({ result }: { result: DocumentUploadResponse }) {
   );
 }
 
-function DocumentList({ result }: { result: DocumentListResponse }) {
+interface DocumentListProps {
+  result: DocumentListResponse;
+  deletingDocumentId: string | null;
+  reindexingDocumentId: string | null;
+  onDelete(record: DocumentRecord): void;
+  onReindex(record: DocumentRecord): void;
+}
+
+function DocumentList({
+  result,
+  deletingDocumentId,
+  reindexingDocumentId,
+  onDelete,
+  onReindex,
+}: DocumentListProps) {
   return (
     <section className="document-result" aria-label="업로드 문서 목록">
       <Space direction="vertical" size={12} className="chat-main-stack">
@@ -324,14 +405,36 @@ function DocumentList({ result }: { result: DocumentListResponse }) {
         <List
           className="audit-event-list"
           dataSource={result.documents}
-          renderItem={(record) => <DocumentListItem record={record} />}
+          renderItem={(record) => (
+            <DocumentListItem
+              record={record}
+              isDeleting={deletingDocumentId === record.document_id}
+              isReindexing={reindexingDocumentId === record.document_id}
+              onDelete={onDelete}
+              onReindex={onReindex}
+            />
+          )}
         />
       </Space>
     </section>
   );
 }
 
-function DocumentListItem({ record }: { record: DocumentRecord }) {
+interface DocumentListItemProps {
+  record: DocumentRecord;
+  isDeleting: boolean;
+  isReindexing: boolean;
+  onDelete(record: DocumentRecord): void;
+  onReindex(record: DocumentRecord): void;
+}
+
+function DocumentListItem({
+  record,
+  isDeleting,
+  isReindexing,
+  onDelete,
+  onReindex,
+}: DocumentListItemProps) {
   return (
     <List.Item className="audit-event-item">
       <Space direction="vertical" size={6} className="chat-main-stack">
@@ -345,6 +448,27 @@ function DocumentListItem({ record }: { record: DocumentRecord }) {
         <Text copyable>{record.document_id}</Text>
         <Text type="secondary">{record.workspace_name}</Text>
         <Paragraph className="answer-text">{record.text_preview}</Paragraph>
+        <Space wrap>
+          <Button
+            size="small"
+            icon={<SyncOutlined />}
+            loading={isReindexing}
+            disabled={isDeleting}
+            onClick={() => onReindex(record)}
+          >
+            재인덱싱
+          </Button>
+          <Button
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            loading={isDeleting}
+            disabled={isReindexing}
+            onClick={() => onDelete(record)}
+          >
+            삭제
+          </Button>
+        </Space>
       </Space>
     </List.Item>
   );
@@ -400,4 +524,53 @@ function parseDocumentIds(value: string): string[] {
     .split(",")
     .map((documentId) => documentId.trim())
     .filter(Boolean);
+}
+
+function removeDocument(
+  current: DocumentListResponse | null,
+  documentId: string,
+): DocumentListResponse | null {
+  if (!current) {
+    return current;
+  }
+
+  const documents = current.documents.filter(
+    (record) => record.document_id !== documentId,
+  );
+  return {
+    documents,
+    total: documents.length,
+  };
+}
+
+function upsertDocument(
+  current: DocumentListResponse | null,
+  record: DocumentRecord,
+): DocumentListResponse | null {
+  if (!current) {
+    return {
+      documents: [record],
+      total: 1,
+    };
+  }
+
+  const exists = current.documents.some(
+    (document) => document.document_id === record.document_id,
+  );
+  const documents = exists
+    ? current.documents.map((document) =>
+        document.document_id === record.document_id ? record : document,
+      )
+    : [record, ...current.documents];
+
+  return {
+    documents,
+    total: documents.length,
+  };
+}
+
+function removeDocumentId(value: string, documentId: string): string {
+  return parseDocumentIds(value)
+    .filter((currentDocumentId) => currentDocumentId !== documentId)
+    .join(", ");
 }

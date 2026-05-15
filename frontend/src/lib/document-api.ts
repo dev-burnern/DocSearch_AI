@@ -7,6 +7,11 @@ export interface DocumentListPayload {
   apiKey: string;
 }
 
+export interface DocumentActionPayload {
+  apiKey: string;
+  documentId: string;
+}
+
 export interface DocumentUploadResponse {
   document_id: string;
   workspace_id: string;
@@ -30,9 +35,17 @@ export interface DocumentListResponse {
   total: number;
 }
 
+export interface DocumentDeleteResponse {
+  document_id: string;
+  workspace_id: string;
+  deleted: boolean;
+}
+
 export interface DocumentClient {
   uploadDocument(payload: DocumentUploadPayload): Promise<DocumentUploadResponse>;
   listDocuments(payload: DocumentListPayload): Promise<DocumentListResponse>;
+  deleteDocument(payload: DocumentActionPayload): Promise<DocumentDeleteResponse>;
+  reindexDocument(payload: DocumentActionPayload): Promise<DocumentRecord>;
 }
 
 type Fetcher = (input: string, init: RequestInit) => Promise<Response>;
@@ -96,6 +109,44 @@ export function createDocumentApiClient(
       }
 
       return (await response.json()) as DocumentListResponse;
+    },
+
+    async deleteDocument(
+      payload: DocumentActionPayload,
+    ): Promise<DocumentDeleteResponse> {
+      const response = await fetcher(
+        `${baseUrl}/v1/documents/${encodeURIComponent(payload.documentId)}`,
+        {
+          method: "DELETE",
+          headers: {
+            "X-API-Key": payload.apiKey,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new DocumentApiError(await readErrorMessage(response));
+      }
+
+      return (await response.json()) as DocumentDeleteResponse;
+    },
+
+    async reindexDocument(payload: DocumentActionPayload): Promise<DocumentRecord> {
+      const response = await fetcher(
+        `${baseUrl}/v1/documents/${encodeURIComponent(payload.documentId)}/reindex`,
+        {
+          method: "POST",
+          headers: {
+            "X-API-Key": payload.apiKey,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new DocumentApiError(await readErrorMessage(response));
+      }
+
+      return (await response.json()) as DocumentRecord;
     },
   };
 }
