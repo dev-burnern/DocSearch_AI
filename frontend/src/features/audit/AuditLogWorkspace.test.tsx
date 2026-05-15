@@ -94,4 +94,36 @@ describe("AuditLogWorkspace", () => {
 
     expect(await screen.findByText("API key is invalid.")).toBeInTheDocument();
   });
+
+  it("입력한 조회 필터를 감사 로그 API에 전달한다", async () => {
+    const user = userEvent.setup();
+    const client = {
+      listChatEvents: vi.fn().mockResolvedValue({ total: 0, events: [] }),
+    };
+
+    render(<AuditLogWorkspace client={client} />);
+
+    await user.type(screen.getByLabelText("API Key"), "local-dev-key");
+    await user.type(screen.getByLabelText("검색어"), "정책");
+    await user.type(screen.getByLabelText("문서 ID"), "doc-1");
+    await user.type(screen.getByLabelText("요청 ID"), "request-1");
+    await user.type(screen.getByLabelText("시작 시각"), "2026-05-15T09:00");
+    await user.type(screen.getByLabelText("종료 시각"), "2026-05-15T10:00");
+    await user.clear(screen.getByLabelText("조회 개수"));
+    await user.type(screen.getByLabelText("조회 개수"), "20");
+
+    await user.click(screen.getByRole("button", { name: /로그 조회/ }));
+
+    await waitFor(() => {
+      expect(client.listChatEvents).toHaveBeenCalledWith({
+        apiKey: "local-dev-key",
+        query: "정책",
+        documentId: "doc-1",
+        requestId: "request-1",
+        occurredFrom: "2026-05-15T09:00",
+        occurredTo: "2026-05-15T10:00",
+        limit: 20,
+      });
+    });
+  });
 });
