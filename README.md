@@ -41,8 +41,14 @@ docker compose -f infra/compose/docker-compose.yml up --build
 - MinIO 콘솔: `http://localhost:9001`
 - vLLM 엔드포인트: `http://localhost:8100`
 
+## 로컬 인증 키
+
+`DOCSEARCH_API_KEYS`는 세미콜론으로 여러 키를 등록할 수 있습니다. 형식은 `api_key|workspace_id|workspace_name(|role)`이며, `role`은 `member` 또는 `admin`입니다. 역할을 생략하면 `member`로 처리됩니다.
+
+로컬 Compose 기본값은 관리자 검토용 `local-dev-key`와 일반 사용자 확인용 `local-member-key`를 같은 워크스페이스에 등록합니다. 감사 로그 조회와 CSV 내보내기는 `admin` 역할에서만 접근할 수 있습니다.
+
 ## 현재 범위
 
-현재 기준선에는 서비스 경계, 상태 확인 엔드포인트, 운영 준비 상태 진단, 기본 보안 응답 헤더, 로컬 실행 설정, CI, API Key 기반 워크스페이스 인증, 문서 업로드, 문서 메타데이터 저장소와 목록 조회 API, 문서 삭제/재인덱싱 API, 개발용 인프로세스 인덱싱 큐, 청킹과 임베딩 파이프라인, Qdrant 기반 Dense retrieval, 워크스페이스 메타데이터 필터, 검색 API, BGE 호환 리랭커 경계, vLLM/OpenAI 호환 LLM 게이트웨이, 출처 포함 채팅 API, PostgreSQL 감사 로그 저장소, 감사 로그 조회 필터와 CSV 내보내기, 프론트엔드 채팅 플로우, 감사 로그 조회/내보내기 화면, 문서 업로드/목록/검색/삭제/재인덱싱 화면이 포함되어 있습니다.
+현재 기준선에는 서비스 경계, 상태 확인 엔드포인트, 운영 준비 상태 진단, 기본 보안 응답 헤더, 로컬 실행 설정, CI, API Key 기반 워크스페이스/관리자 역할 인증, 문서 업로드, 문서 메타데이터 저장소와 목록 조회 API, 문서 삭제/재인덱싱 API, 개발용 인프로세스 인덱싱 큐, 청킹과 임베딩 파이프라인, Qdrant 기반 Dense retrieval, 워크스페이스 메타데이터 필터, 검색 API, BGE 호환 리랭커 경계, vLLM/OpenAI 호환 LLM 게이트웨이, 출처 포함 채팅 API, PostgreSQL 감사 로그 저장소, 관리자 전용 감사 로그 조회 필터와 CSV 내보내기, 프론트엔드 채팅 플로우, 감사 로그 조회/내보내기 화면, 문서 업로드/목록/검색/삭제/재인덱싱 화면이 포함되어 있습니다.
 
-다음 단계에서는 관리자 권한 분리, 외부 의존성 상태 점검을 순차적으로 추가합니다.
+다음 단계에서는 외부 의존성 상태 점검, 관리자 화면 표시 조건, 운영 rate limit을 순차적으로 추가합니다.
