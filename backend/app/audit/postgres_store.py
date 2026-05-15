@@ -1,7 +1,7 @@
 import json
 from typing import Callable
 
-from backend.app.audit.models import ChatAuditEvent
+from backend.app.audit.models import ChatAuditEvent, ChatAuditEventFilters
 
 
 class PostgresAuditLogStore:
@@ -56,18 +56,23 @@ class PostgresAuditLogStore:
         self,
         *,
         workspace_id: str,
-        limit: int = 100,
+        filters: ChatAuditEventFilters | None = None,
     ) -> list[ChatAuditEvent]:
+        resolved_filters = filters or ChatAuditEventFilters()
+        where_clauses, params = _build_filter_clauses(
+            workspace_id=workspace_id,
+            filters=resolved_filters,
+        )
         with self._connection_factory() as connection:
             cursor = connection.execute(
-                """
+                f"""
                 SELECT event_payload
                 FROM chat_audit_events
-                WHERE workspace_id = %(workspace_id)s
+                WHERE {" AND ".join(where_clauses)}
                 ORDER BY occurred_at DESC
                 LIMIT %(limit)s
                 """,
-                {"workspace_id": workspace_id, "limit": limit},
+                params,
             )
             rows = cursor.fetchall()
 
@@ -111,3 +116,57 @@ def _read_payload(row: dict[str, object]) -> dict[str, object] | str:
     if isinstance(payload, str):
         return json.loads(payload)
     return payload
+
+
+def _build_filter_clauses(
+    *,
+    workspace_id: str,
+    filters: ChatAuditEventFilters,
+) -> tuple[list[str], dict[str, object]]:
+    clauses = ["workspace_id = %(workspace_id)s"]
+    params: dict[str, object] = {
+        "workspace_id": workspace_id,
+        "limit": filters.limit,
+    }
+
+    if filters.event_type:
+        clauses.append("event_type = %(event_type)s")
+        params["event_type"] = filters.event_type
+
+    if filters.request_id:
+        clauses.append("request_id = %(request_id)s")
+        params["request_id"] = filters.request_id
+
+    if filters.document_id:
+        clauses.append(
+            """
+            (
+                event_payload->'document_ids' ? %(document_id)s
+                OR event_payload->'citations' @> jsonb_build_array(
+                    jsonb_build_object('document_id', %(document_id)s)
+                )
+            )
+            """
+        )
+        params["document_id"] = filters.document_id
+
+    if filters.occurred_from:
+        clauses.append("occurred_at >= %(occurred_from)s")
+        params["occurred_from"] = filters.occurred_from
+
+    if filters.occurred_to:
+        clauses.append("occurred_at <= %(occurred_to)s")
+        params["occurred_to"] = filters.occurred_to
+
+    if filters.query:
+        clauses.append(
+            """
+            (
+                event_payload->>'question' ILIKE %(query_like)s
+                OR event_payload->>'answer_preview' ILIKE %(query_like)s
+            )
+            """
+        )
+        params["query_like"] = f"%{filters.query}%"
+
+    return clauses, params

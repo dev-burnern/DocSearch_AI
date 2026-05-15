@@ -5,6 +5,7 @@ import {
   Card,
   Empty,
   Input,
+  InputNumber,
   List,
   Space,
   Tag,
@@ -36,6 +37,12 @@ export function AuditLogWorkspace({ client }: AuditLogWorkspaceProps) {
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  const [documentId, setDocumentId] = useState("");
+  const [requestId, setRequestId] = useState("");
+  const [occurredFrom, setOccurredFrom] = useState("");
+  const [occurredTo, setOccurredTo] = useState("");
+  const [limit, setLimit] = useState(100);
 
   const canSubmit = apiKey.trim().length > 0 && !isLoading;
 
@@ -50,6 +57,12 @@ export function AuditLogWorkspace({ client }: AuditLogWorkspaceProps) {
     try {
       const nextResponse = await auditLogClient.listChatEvents({
         apiKey: apiKey.trim(),
+        query: normalizeOptionalText(query),
+        documentId: normalizeOptionalText(documentId),
+        requestId: normalizeOptionalText(requestId),
+        occurredFrom: normalizeOptionalText(occurredFrom),
+        occurredTo: normalizeOptionalText(occurredTo),
+        limit: limit === 100 ? undefined : limit,
       });
       setResponse(nextResponse);
     } catch (error) {
@@ -83,6 +96,65 @@ export function AuditLogWorkspace({ client }: AuditLogWorkspaceProps) {
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value)}
           />
+
+          <label className="field-label" htmlFor="audit-query">
+            검색어
+          </label>
+          <Input
+            id="audit-query"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+
+          <label className="field-label" htmlFor="audit-document-id">
+            문서 ID
+          </label>
+          <Input
+            id="audit-document-id"
+            value={documentId}
+            onChange={(event) => setDocumentId(event.target.value)}
+          />
+
+          <label className="field-label" htmlFor="audit-request-id">
+            요청 ID
+          </label>
+          <Input
+            id="audit-request-id"
+            value={requestId}
+            onChange={(event) => setRequestId(event.target.value)}
+          />
+
+          <label className="field-label" htmlFor="audit-occurred-from">
+            시작 시각
+          </label>
+          <Input
+            id="audit-occurred-from"
+            type="datetime-local"
+            value={occurredFrom}
+            onChange={(event) => setOccurredFrom(event.target.value)}
+          />
+
+          <label className="field-label" htmlFor="audit-occurred-to">
+            종료 시각
+          </label>
+          <Input
+            id="audit-occurred-to"
+            type="datetime-local"
+            value={occurredTo}
+            onChange={(event) => setOccurredTo(event.target.value)}
+          />
+
+          <label className="field-label" htmlFor="audit-limit">
+            조회 개수
+          </label>
+          <InputNumber
+            id="audit-limit"
+            min={1}
+            max={200}
+            value={limit}
+            onChange={(value) => setLimit(value ?? 100)}
+          />
+
           <Button
             type="primary"
             htmlType="submit"
@@ -128,6 +200,11 @@ export function AuditLogWorkspace({ client }: AuditLogWorkspaceProps) {
       </Card>
     </section>
   );
+}
+
+function normalizeOptionalText(value: string): string | undefined {
+  const trimmedValue = value.trim();
+  return trimmedValue ? trimmedValue : undefined;
 }
 
 function AuditLogEventItem({ event }: { event: ChatAuditEvent }) {

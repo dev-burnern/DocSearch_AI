@@ -1,9 +1,10 @@
 from functools import lru_cache
+from datetime import datetime
 from typing import Callable
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
-from backend.app.audit.models import ChatAuditEventListResponse
+from backend.app.audit.models import ChatAuditEventFilters, ChatAuditEventListResponse
 from backend.app.audit.postgres_store import PostgresAuditLogStore
 from backend.app.audit.store import AuditLogStore, InMemoryAuditLogStore
 from backend.app.auth.dependencies import require_workspace_context
@@ -35,10 +36,25 @@ def get_audit_log_store() -> AuditLogStore:
 
 @router.get("/chat", response_model=ChatAuditEventListResponse)
 async def list_chat_audit_events(
+    query: str | None = Query(default=None),
+    document_id: str | None = Query(default=None),
+    request_id: str | None = Query(default=None),
+    occurred_from: datetime | None = Query(default=None, alias="from"),
+    occurred_to: datetime | None = Query(default=None, alias="to"),
+    limit: int = Query(default=100, ge=1, le=200),
     workspace_context: WorkspaceContext = Depends(require_workspace_context),
     audit_log: AuditLogStore = Depends(get_audit_log_store),
 ) -> ChatAuditEventListResponse:
+    filters = ChatAuditEventFilters(
+        query=query,
+        document_id=document_id,
+        request_id=request_id,
+        occurred_from=occurred_from,
+        occurred_to=occurred_to,
+        limit=limit,
+    )
     events = audit_log.list_chat_events(
         workspace_id=workspace_context.workspace_id,
+        filters=filters,
     )
     return ChatAuditEventListResponse(events=events, total=len(events))

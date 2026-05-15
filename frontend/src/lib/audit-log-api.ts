@@ -1,5 +1,11 @@
 export interface AuditLogRequest {
   apiKey: string;
+  query?: string;
+  documentId?: string;
+  requestId?: string;
+  occurredFrom?: string;
+  occurredTo?: string;
+  limit?: number;
 }
 
 export interface AuditCitation {
@@ -69,12 +75,15 @@ export function createAuditLogApiClient(
     async listChatEvents(
       payload: AuditLogRequest,
     ): Promise<ChatAuditEventListResponse> {
-      const response = await fetcher(`${baseUrl}/v1/audit-logs/chat`, {
-        method: "GET",
-        headers: {
-          "X-API-Key": payload.apiKey,
+      const response = await fetcher(
+        `${baseUrl}/v1/audit-logs/chat${buildQueryString(payload)}`,
+        {
+          method: "GET",
+          headers: {
+            "X-API-Key": payload.apiKey,
+          },
         },
-      });
+      );
 
       if (!response.ok) {
         throw new AuditLogApiError(await readErrorMessage(response));
@@ -87,6 +96,33 @@ export function createAuditLogApiClient(
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/$/, "");
+}
+
+function buildQueryString(payload: AuditLogRequest): string {
+  const params = new URLSearchParams();
+  appendIfPresent(params, "query", payload.query);
+  appendIfPresent(params, "document_id", payload.documentId);
+  appendIfPresent(params, "request_id", payload.requestId);
+  appendIfPresent(params, "from", payload.occurredFrom);
+  appendIfPresent(params, "to", payload.occurredTo);
+
+  if (payload.limit !== undefined) {
+    params.set("limit", String(payload.limit));
+  }
+
+  const queryString = params.toString();
+  return queryString ? `?${queryString}` : "";
+}
+
+function appendIfPresent(
+  params: URLSearchParams,
+  key: string,
+  value: string | undefined,
+) {
+  const trimmedValue = value?.trim();
+  if (trimmedValue) {
+    params.set(key, trimmedValue);
+  }
 }
 
 async function readErrorMessage(response: Response): Promise<string> {
