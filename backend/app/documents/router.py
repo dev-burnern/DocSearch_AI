@@ -23,8 +23,15 @@ from backend.app.documents.models import (
     DocumentUploadResponse,
 )
 from backend.app.documents.postgres_store import PostgresDocumentMetadataStore
-from backend.app.documents.security import validate_document_security_level
-from backend.app.documents.service import DocumentNotFoundError, DocumentService
+from backend.app.documents.security import (
+    DocumentSecurityPermissionError,
+    ensure_document_security_level_allowed,
+    validate_document_security_level,
+)
+from backend.app.documents.service import (
+    DocumentNotFoundError,
+    DocumentService,
+)
 from backend.app.documents.store import DocumentMetadataStore, InMemoryDocumentMetadataStore
 from backend.app.indexing.chunker import CharacterChunker
 from backend.app.indexing.embedder import (
@@ -171,6 +178,10 @@ async def upload_document(
     try:
         data = await file.read()
         validated_security_level = validate_document_security_level(security_level)
+        ensure_document_security_level_allowed(
+            workspace_context.role,
+            validated_security_level,
+        )
         return document_service.upload_document(
             workspace_context=workspace_context,
             filename=file.filename or "document",
@@ -180,6 +191,8 @@ async def upload_document(
         )
     except DocumentProcessingError as exc:
         raise _document_processing_error(exc) from exc
+    except DocumentSecurityPermissionError as exc:
+        raise _document_security_forbidden() from exc
 
 
 @router.get("", response_model=DocumentListResponse)
@@ -192,7 +205,12 @@ async def list_documents(
         workspace_id=workspace_context.workspace_id,
         limit=limit,
     )
-    return DocumentListResponse(documents=documents, total=len(documents))
+    visible_documents = [
+        document
+        for document in documents
+        if _is_document_visible(workspace_context, document)
+    ]
+    return DocumentListResponse(documents=visible_documents, total=len(visible_documents))
 
 
 @router.delete("/{document_id}", response_model=DocumentDeleteResponse)
@@ -208,6 +226,8 @@ async def delete_document(
         )
     except DocumentNotFoundError as exc:
         raise _document_not_found(document_id) from exc
+    except DocumentSecurityPermissionError as exc:
+        raise _document_security_forbidden() from exc
 
 
 @router.post("/{document_id}/reindex", response_model=DocumentRecord)
@@ -223,8 +243,24 @@ async def reindex_document(
         )
     except DocumentNotFoundError as exc:
         raise _document_not_found(document_id) from exc
+    except DocumentSecurityPermissionError as exc:
+        raise _document_security_forbidden() from exc
     except DocumentProcessingError as exc:
         raise _document_processing_error(exc) from exc
+
+
+def _is_document_visible(
+    workspace_context: WorkspaceContext,
+    document: DocumentRecord,
+) -> bool:
+    try:
+        ensure_document_security_level_allowed(
+            workspace_context.role,
+            document.security_level,
+        )
+    except DocumentSecurityPermissionError:
+        return False
+    return True
 
 
 def _document_not_found(document_id: str) -> HTTPException:
@@ -233,6 +269,16 @@ def _document_not_found(document_id: str) -> HTTPException:
         detail={
             "code": "DOCUMENT_NOT_FOUND",
             "message": f"Document not found: {document_id}",
+        },
+    )
+
+
+def _document_security_forbidden() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "code": "DOCUMENT_SECURITY_FORBIDDEN",
+            "message": "Document security level is not allowed for this role.",
         },
     )
 

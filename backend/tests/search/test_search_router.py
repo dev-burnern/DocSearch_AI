@@ -95,6 +95,83 @@ def test_검색_API가_워크스페이스_필터로_청크를_반환한다(
     }
 
 
+def test_member_search_without_security_filter_is_scoped_to_allowed_levels(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DOCSEARCH_API_KEYS",
+        "local-dev-key|workspace-alpha|Workspace Alpha|member",
+    )
+
+    from backend.app.search.router import get_search_retriever
+
+    fake_retriever = FakeRetriever()
+    app = create_app()
+    app.dependency_overrides[get_search_retriever] = lambda: fake_retriever
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/search",
+        headers={"X-API-Key": "local-dev-key"},
+        json={"query": "권한 정책"},
+    )
+
+    assert response.status_code == 200
+    assert fake_retriever.security_levels == ["general", "internal"]
+
+
+def test_member_search_rejects_restricted_security_level(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DOCSEARCH_API_KEYS",
+        "local-dev-key|workspace-alpha|Workspace Alpha|member",
+    )
+
+    from backend.app.search.router import get_search_retriever
+
+    app = create_app()
+    app.dependency_overrides[get_search_retriever] = lambda: FakeRetriever()
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/search",
+        headers={"X-API-Key": "local-dev-key"},
+        json={
+            "query": "권한 정책",
+            "security_levels": ["restricted"],
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "DOCUMENT_SECURITY_FORBIDDEN"
+
+
+def test_admin_search_without_security_filter_keeps_unrestricted_filter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DOCSEARCH_API_KEYS",
+        "local-dev-key|workspace-alpha|Workspace Alpha|admin",
+    )
+
+    from backend.app.search.router import get_search_retriever
+
+    fake_retriever = FakeRetriever()
+    app = create_app()
+    app.dependency_overrides[get_search_retriever] = lambda: fake_retriever
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/search",
+        headers={"X-API-Key": "local-dev-key"},
+        json={"query": "권한 정책"},
+    )
+
+    assert response.status_code == 200
+    assert fake_retriever.security_levels is None
+
+
 def test_검색_API는_API_Key가_없으면_거부한다() -> None:
     app = create_app()
     client = TestClient(app)

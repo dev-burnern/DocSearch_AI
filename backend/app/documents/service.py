@@ -8,6 +8,7 @@ from backend.app.documents.models import (
     DocumentRecord,
     DocumentUploadResponse,
 )
+from backend.app.documents.security import ensure_document_security_level_allowed
 from backend.app.documents.store import DocumentMetadataStore
 from backend.app.jobs.base import IndexDocumentJob, JobQueue
 from backend.app.parsers.base import DocumentTooLargeError, ParserRegistry
@@ -109,6 +110,10 @@ class DocumentService:
         )
         if record is None:
             raise DocumentNotFoundError(f"Document not found: {document_id}")
+        ensure_document_security_level_allowed(
+            workspace_context.role,
+            record.security_level,
+        )
 
         self._vector_store.delete_document(
             workspace_id=workspace_context.workspace_id,
@@ -138,6 +143,10 @@ class DocumentService:
         )
         if record is None:
             raise DocumentNotFoundError(f"Document not found: {document_id}")
+        ensure_document_security_level_allowed(
+            workspace_context.role,
+            record.security_level,
+        )
 
         data = self._storage_service.download_document(storage_key=record.storage_key)
         self._validate_document_size(data)

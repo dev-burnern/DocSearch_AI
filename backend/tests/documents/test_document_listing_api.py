@@ -14,11 +14,13 @@ def _record(
     *,
     workspace_id: str,
     workspace_name: str,
+    security_level: str = "internal",
 ) -> DocumentRecord:
     return DocumentRecord(
         document_id=document_id,
         workspace_id=workspace_id,
         workspace_name=workspace_name,
+        security_level=security_level,
         filename=f"{document_id}.md",
         parser="markdown",
         character_count=42,
@@ -46,6 +48,15 @@ def document_store() -> InMemoryDocumentMetadataStore:
             "doc-alpha",
             workspace_id="workspace-alpha",
             workspace_name="Workspace Alpha",
+            security_level="internal",
+        ),
+    )
+    store.record_document(
+        _record(
+            "doc-restricted",
+            workspace_id="workspace-alpha",
+            workspace_name="Workspace Alpha",
+            security_level="restricted",
         ),
     )
     store.record_document(
@@ -87,3 +98,31 @@ def test_문서_목록은_인증된_워크스페이스_문서만_반환한다(cl
     assert response.json()["documents"][0]["document_id"] == "doc-alpha"
     assert response.json()["documents"][0]["workspace_id"] == "workspace-alpha"
     assert response.json()["documents"][0]["filename"] == "doc-alpha.md"
+
+
+def test_관리자는_제한_문서까지_목록에서_확인한다(
+    monkeypatch: pytest.MonkeyPatch,
+    document_store: InMemoryDocumentMetadataStore,
+) -> None:
+    monkeypatch.setenv(
+        "DOCSEARCH_API_KEYS",
+        "local-dev-key|workspace-alpha|Workspace Alpha|admin",
+    )
+
+    from backend.app.documents.router import get_document_metadata_store
+
+    app = create_app()
+    app.dependency_overrides[get_document_metadata_store] = lambda: document_store
+    client = TestClient(app)
+
+    response = client.get(
+        "/v1/documents",
+        headers={"X-API-Key": "local-dev-key"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 2
+    assert {document["document_id"] for document in response.json()["documents"]} == {
+        "doc-alpha",
+        "doc-restricted",
+    }

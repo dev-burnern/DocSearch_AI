@@ -201,7 +201,7 @@ def test_upload_with_login_token_records_uploader_and_security_level(
     client: TestClient,
     document_store: InMemoryDocumentMetadataStore,
 ) -> None:
-    token = _login_token(client, employee_id="1002")
+    token = _login_token(client, employee_id="2301029")
 
     response = client.post(
         "/v1/documents",
@@ -211,12 +211,26 @@ def test_upload_with_login_token_records_uploader_and_security_level(
     )
 
     assert response.status_code == 201
-    assert response.json()["uploaded_by_employee_id"] == "1002"
+    assert response.json()["uploaded_by_employee_id"] == "2301029"
     assert response.json()["security_level"] == "confidential"
 
     records = document_store.list_documents(workspace_id="local-workspace")
-    assert records[0].uploaded_by_employee_id == "1002"
+    assert records[0].uploaded_by_employee_id == "2301029"
     assert records[0].security_level == "confidential"
+
+
+def test_member_upload_rejects_confidential_security_level(client: TestClient) -> None:
+    token = _login_token(client, employee_id="1002")
+
+    response = client.post(
+        "/v1/documents",
+        headers={"Authorization": f"Bearer {token}"},
+        data={"security_level": "confidential"},
+        files={"file": ("memo.txt", b"hello docsearch", "text/plain")},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "DOCUMENT_SECURITY_FORBIDDEN"
 
 
 def test_upload_rejects_unknown_security_level(client: TestClient) -> None:
