@@ -4,6 +4,9 @@ from backend.app.admin.operations import router as admin_operations_router
 from backend.app.audit.router import router as audit_router
 from backend.app.auth.dependencies import require_workspace_context
 from backend.app.auth.models import WorkspaceContext
+from backend.app.auth.router import router as auth_router
+from backend.app.auth.service import AuthService
+from backend.app.auth.store import create_auth_user_store
 from backend.app.chat.router import router as chat_router
 from backend.app.core.dependency_health import DependencyHealthChecker
 from backend.app.core.operation_events import InMemoryOperationEventStore
@@ -30,6 +33,10 @@ def create_app() -> FastAPI:
     app.add_middleware(RateLimitMiddleware, settings=settings)
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RequestContextMiddleware)
+    app.state.auth_service = AuthService(
+        settings,
+        user_store=create_auth_user_store(settings),
+    )
     app.state.dependency_health_checker = DependencyHealthChecker()
     app.state.operation_event_store = InMemoryOperationEventStore()
 
@@ -59,9 +66,10 @@ def create_app() -> FastAPI:
     @app.get("/v1/workspace")
     async def workspace(
         workspace_context: WorkspaceContext = Depends(require_workspace_context),
-    ) -> dict[str, str]:
-        return workspace_context.model_dump()
+    ) -> WorkspaceContext:
+        return workspace_context
 
+    app.include_router(auth_router)
     app.include_router(documents_router)
     app.include_router(search_router)
     app.include_router(chat_router)

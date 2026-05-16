@@ -203,6 +203,27 @@ def test_v1_routes_are_limited_by_api_key(monkeypatch: pytest.MonkeyPatch) -> No
     assert other_key.headers["X-RateLimit-Remaining"] == "1"
 
 
+def test_v1_routes_are_limited_by_bearer_token() -> None:
+    from fastapi import FastAPI
+
+    app = FastAPI()
+    app.add_middleware(RateLimitMiddleware, settings=LimitByOneSettings())
+
+    @app.get("/v1/ping")
+    async def ping() -> dict[str, str]:
+        return {"status": "ok"}
+
+    client = TestClient(app)
+
+    first = client.get("/v1/ping", headers={"Authorization": "Bearer alpha-token"})
+    blocked = client.get("/v1/ping", headers={"Authorization": "Bearer alpha-token"})
+    other_token = client.get("/v1/ping", headers={"Authorization": "Bearer beta-token"})
+
+    assert first.status_code == 200
+    assert blocked.status_code == 429
+    assert other_token.status_code == 200
+
+
 def test_v1_routes_are_limited_by_ip_when_api_key_is_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -265,6 +286,16 @@ class UnavailableRateLimitStore:
 class FailOpenSettings:
     rate_limit_enabled = True
     rate_limit_backend = "redis"
+    rate_limit_requests = 1
+    rate_limit_window_seconds = 60
+    rate_limit_redis_prefix = "docsearch:test"
+    rate_limit_fail_open = True
+    redis_url = "redis://redis:6379/0"
+
+
+class LimitByOneSettings:
+    rate_limit_enabled = True
+    rate_limit_backend = "memory"
     rate_limit_requests = 1
     rate_limit_window_seconds = 60
     rate_limit_redis_prefix = "docsearch:test"

@@ -7,6 +7,11 @@ from pydantic import BaseModel, Field
 
 DEFAULT_API_KEY = "local-dev-key"
 DEFAULT_API_KEYS = f"{DEFAULT_API_KEY}|local-workspace|Local Workspace"
+DEFAULT_AUTH_USERS = (
+    "1001|password|local-workspace|Local Workspace|admin|관리자;"
+    "2301029|password|local-workspace|Local Workspace|admin|관리자;"
+    "1002|password|local-workspace|Local Workspace|member|사용자"
+)
 
 
 def _bool_env(name: str, default: bool) -> bool:
@@ -38,6 +43,31 @@ class Settings(BaseModel):
         default_factory=lambda: os.getenv(
             "DOCSEARCH_API_KEYS",
             DEFAULT_API_KEYS,
+        ),
+    )
+    auth_users: str = Field(
+        default_factory=lambda: os.getenv("DOCSEARCH_AUTH_USERS", DEFAULT_AUTH_USERS),
+    )
+    auth_user_backend: Literal["inmemory", "postgres"] = Field(
+        default_factory=lambda: os.getenv("AUTH_USER_BACKEND", "inmemory"),
+    )
+    auth_token_secret: str = Field(
+        default_factory=lambda: os.getenv("DOCSEARCH_AUTH_TOKEN_SECRET", "local-dev-secret"),
+    )
+    auth_token_ttl_seconds: int = Field(
+        default_factory=lambda: int(os.getenv("DOCSEARCH_AUTH_TOKEN_TTL_SECONDS", "86400")),
+        gt=0,
+    )
+    signup_default_workspace_id: str = Field(
+        default_factory=lambda: os.getenv(
+            "DOCSEARCH_SIGNUP_WORKSPACE_ID",
+            "local-workspace",
+        ),
+    )
+    signup_default_workspace_name: str = Field(
+        default_factory=lambda: os.getenv(
+            "DOCSEARCH_SIGNUP_WORKSPACE_NAME",
+            "Local Workspace",
         ),
     )
     database_url: str = Field(
