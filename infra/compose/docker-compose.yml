@@ -48,6 +48,7 @@ services:
       LLM_TEMPERATURE: "0.2"
       CHAT_RETRIEVAL_LIMIT: "5"
       CHAT_RERANK_TOP_K: "5"
+      CHAT_MIN_RELEVANCE_SCORE: "0.2"
       RERANKER_BACKEND: score
       RERANKER_BASE_URL: http://reranker:8001/v1
       RERANKER_MODEL: BAAI/bge-reranker-v2-m3

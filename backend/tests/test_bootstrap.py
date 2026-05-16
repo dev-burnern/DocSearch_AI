@@ -30,6 +30,7 @@ def test_settings_load_default_values():
     assert settings.indexing_queue_redis_key == "docsearch:indexing:queue"
     assert settings.indexing_queue_max_attempts == 3
     assert settings.document_max_bytes == 10485760
+    assert settings.chat_min_relevance_score == 0.2
 
 
 def test_settings_enable_dependency_health_checks_by_default_in_production(
@@ -96,6 +97,16 @@ def test_settings_allow_document_size_override(
     settings = get_settings()
 
     assert settings.document_max_bytes == 4096
+
+
+def test_settings_allow_chat_relevance_threshold_override(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("CHAT_MIN_RELEVANCE_SCORE", "0.45")
+
+    settings = get_settings()
+
+    assert settings.chat_min_relevance_score == 0.45
 
 
 def test_health_route_returns_expected_contract():

@@ -59,6 +59,7 @@ def get_chat_service(
         audit_log=audit_log,
         retrieval_limit=settings.chat_retrieval_limit,
         rerank_top_k=settings.chat_rerank_top_k,
+        min_relevance_score=settings.chat_min_relevance_score,
     )
 
 
