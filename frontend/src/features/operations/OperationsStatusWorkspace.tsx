@@ -3,6 +3,7 @@ import { Alert, Button, Card, Empty, Input, List, Space, Tag, Typography } from 
 import { useMemo, useState } from "react";
 
 import {
+  OperationEvent,
   OperationsCheck,
   OperationsClient,
   OperationsStatusResponse,
@@ -163,6 +164,17 @@ function OperationsSummary({ response }: { response: OperationsStatusResponse })
         dataSource={response.checks}
         renderItem={(check) => <OperationsCheckItem check={check} />}
       />
+
+      <Card size="small" title="운영 이벤트" variant="borderless">
+        {response.events.length === 0 ? (
+          <Empty description="기록된 운영 이벤트가 없습니다." />
+        ) : (
+          <List
+            dataSource={response.events}
+            renderItem={(event) => <OperationEventItem event={event} />}
+          />
+        )}
+      </Card>
     </Space>
   );
 }
@@ -178,6 +190,23 @@ function OperationsCheckItem({ check }: { check: OperationsCheck }) {
           </Tag>
         </Space>
         <Paragraph className="answer-text">{check.message}</Paragraph>
+      </Space>
+    </List.Item>
+  );
+}
+
+function OperationEventItem({ event }: { event: OperationEvent }) {
+  return (
+    <List.Item className="audit-event-item">
+      <Space direction="vertical" size={6} className="chat-main-stack">
+        <Space wrap>
+          <Text strong>{event.source}</Text>
+          <Tag color={event.severity === "error" ? "red" : "gold"}>
+            {event.severity}
+          </Tag>
+          <Tag>{event.event_type}</Tag>
+        </Space>
+        <Paragraph className="answer-text">{event.message}</Paragraph>
       </Space>
     </List.Item>
   );

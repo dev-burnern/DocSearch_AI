@@ -13,6 +13,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
 from backend.app.core.config import Settings
+from backend.app.core.operation_events import OperationEvent
 
 
 REDIS_SLIDING_WINDOW_SCRIPT = """
@@ -212,7 +213,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 self._store.check,
                 self._bucket_key(request),
             )
-        except RateLimitBackendUnavailable:
+        except RateLimitBackendUnavailable as exc:
+            self._record_backend_unavailable(request, exc)
             if self._fail_open:
                 response = await call_next(request)
                 response.headers["X-RateLimit-Backend"] = "unavailable"
@@ -268,3 +270,25 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         response.headers["X-RateLimit-Limit"] = str(decision.limit)
         response.headers["X-RateLimit-Remaining"] = str(decision.remaining)
         response.headers["X-RateLimit-Reset"] = str(decision.reset_after_seconds)
+
+    def _record_backend_unavailable(
+        self,
+        request: Request,
+        exc: RateLimitBackendUnavailable,
+    ) -> None:
+        event_store = getattr(request.app.state, "operation_event_store", None)
+        if event_store is None:
+            return
+
+        event_store.record(
+            OperationEvent(
+                event_type="rate_limit.backend_unavailable",
+                severity="error",
+                source="rate_limit",
+                message=f"Rate limit backend is unavailable: {exc}",
+                details={
+                    "method": request.method,
+                    "path": request.url.path,
+                },
+            )
+        )

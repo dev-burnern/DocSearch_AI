@@ -7,9 +7,18 @@ from backend.app.core.dependency_health import (
     DependencyCheckResult,
     DependencyHealthChecker,
 )
+from backend.app.core.operation_events import OperationEvent, OperationEventStore
 
 
 OperationalStatus = Literal["ready", "not_ready"]
+DEPENDENCY_CHECK_NAMES = {
+    "postgres",
+    "qdrant",
+    "minio",
+    "vllm",
+    "redis",
+    "reranker",
+}
 
 
 class OperationalCheck(BaseModel):
@@ -122,3 +131,23 @@ def _to_operational_checks(
         )
         for check in dependency_checks
     ]
+
+
+def record_dependency_failure_events(
+    *,
+    checks: list[OperationalCheck],
+    event_store: OperationEventStore,
+) -> None:
+    for check in checks:
+        if check.status == "ready" or check.name not in DEPENDENCY_CHECK_NAMES:
+            continue
+
+        event_store.record(
+            OperationEvent(
+                event_type="dependency.health_failed",
+                severity="error",
+                source=check.name,
+                message=check.message,
+                details={"check": check.name},
+            )
+        )

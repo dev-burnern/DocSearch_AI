@@ -16,6 +16,16 @@ export interface OperationsCheck {
   message: string;
 }
 
+export interface OperationEvent {
+  event_id: string;
+  event_type: string;
+  severity: "info" | "warning" | "error";
+  source: string;
+  message: string;
+  occurred_at: string;
+  details: Record<string, string>;
+}
+
 export interface OperationsSettingsSummary {
   environment: string;
   debug: boolean;
@@ -46,6 +56,7 @@ export interface OperationsStatusResponse {
   service: string;
   workspace: OperationsWorkspaceSummary;
   checks: OperationsCheck[];
+  events: OperationEvent[];
   settings: OperationsSettingsSummary;
 }
 

@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from backend.app.core.config import get_settings
+from backend.app.core.operation_events import InMemoryOperationEventStore
 from backend.app.main import create_app
 from backend.app.middleware.rate_limit import (
     RateLimitBackendUnavailable,
@@ -133,6 +134,37 @@ def test_rate_limit_middleware_fails_open_when_backend_is_unavailable() -> None:
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
     assert response.headers["X-RateLimit-Backend"] == "unavailable"
+
+
+def test_rate_limit_middleware_records_backend_unavailable_event() -> None:
+    from fastapi import FastAPI
+
+    app = FastAPI()
+    event_store = InMemoryOperationEventStore()
+    app.state.operation_event_store = event_store
+    app.add_middleware(
+        RateLimitMiddleware,
+        settings=FailOpenSettings(),
+        store=UnavailableRateLimitStore(),
+    )
+
+    @app.get("/v1/ping")
+    async def ping() -> dict[str, str]:
+        return {"status": "ok"}
+
+    client = TestClient(app)
+
+    response = client.get("/v1/ping")
+
+    assert response.status_code == 200
+    event = event_store.list_events()[0]
+    assert event.event_type == "rate_limit.backend_unavailable"
+    assert event.severity == "error"
+    assert event.source == "rate_limit"
+    assert event.details == {
+        "method": "GET",
+        "path": "/v1/ping",
+    }
 
 
 def test_v1_routes_are_limited_by_api_key(monkeypatch: pytest.MonkeyPatch) -> None:

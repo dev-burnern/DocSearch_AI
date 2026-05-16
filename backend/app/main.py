@@ -6,7 +6,9 @@ from backend.app.auth.dependencies import require_workspace_context
 from backend.app.auth.models import WorkspaceContext
 from backend.app.chat.router import router as chat_router
 from backend.app.core.dependency_health import DependencyHealthChecker
+from backend.app.core.operation_events import InMemoryOperationEventStore
 from backend.app.core.operations import build_readiness_response
+from backend.app.core.operations import record_dependency_failure_events
 from backend.app.documents.router import router as documents_router
 from backend.app.middleware.rate_limit import RateLimitMiddleware
 from backend.app.middleware.request_context import RequestContextMiddleware
@@ -29,6 +31,7 @@ def create_app() -> FastAPI:
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RequestContextMiddleware)
     app.state.dependency_health_checker = DependencyHealthChecker()
+    app.state.operation_event_store = InMemoryOperationEventStore()
 
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -42,6 +45,10 @@ def create_app() -> FastAPI:
         readiness = build_readiness_response(
             settings,
             dependency_health_checker=app.state.dependency_health_checker,
+        )
+        record_dependency_failure_events(
+            checks=readiness.checks,
+            event_store=app.state.operation_event_store,
         )
         status_code = 200 if readiness.status == "ready" else 503
         return JSONResponse(

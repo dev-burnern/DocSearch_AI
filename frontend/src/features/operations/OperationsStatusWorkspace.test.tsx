@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { OperationsStatusWorkspace } from "./OperationsStatusWorkspace";
+import type { OperationsStatusResponse } from "../../lib/operations-api";
 
 describe("OperationsStatusWorkspace", () => {
   it("운영 상태를 조회하고 요약 정보를 표시한다", async () => {
@@ -29,7 +30,38 @@ describe("OperationsStatusWorkspace", () => {
     expect(screen.getByText("fail-open on")).toBeInTheDocument();
     expect(screen.getByText("qdrant")).toBeInTheDocument();
     expect(screen.getByText("Qdrant 연결이 정상입니다.")).toBeInTheDocument();
+    expect(screen.getByText("기록된 운영 이벤트가 없습니다.")).toBeInTheDocument();
     expect(screen.getByText("google/gemma-4-E4B-it")).toBeInTheDocument();
+  });
+
+  it("운영 이벤트를 표시한다", async () => {
+    const user = userEvent.setup();
+    const client = {
+      getOperationsStatus: vi.fn().mockResolvedValue(
+        buildOperationsResponse({
+          events: [
+            {
+              event_id: "event-1",
+              event_type: "dependency.health_failed",
+              severity: "error" as const,
+              source: "qdrant",
+              message: "Qdrant 연결에 실패했습니다.",
+              occurred_at: "2026-05-16T00:00:00Z",
+              details: { check: "qdrant" },
+            },
+          ],
+        }),
+      ),
+    };
+
+    render(<OperationsStatusWorkspace client={client} />);
+
+    await user.type(screen.getByLabelText("API Key"), "admin-key");
+    await user.click(screen.getByRole("button", { name: /상태 새로고침/ }));
+
+    expect(await screen.findByText("운영 이벤트")).toBeInTheDocument();
+    expect(screen.getByText("dependency.health_failed")).toBeInTheDocument();
+    expect(screen.getByText("Qdrant 연결에 실패했습니다.")).toBeInTheDocument();
   });
 
   it("공통 API Key를 받으면 내부 API Key 입력을 숨기고 그대로 사용한다", async () => {
@@ -67,7 +99,16 @@ describe("OperationsStatusWorkspace", () => {
   });
 });
 
-function buildOperationsResponse() {
+function buildOperationsResponse(
+  overrides: Partial<OperationsStatusResponse> = {},
+): OperationsStatusResponse {
+  return {
+    ...buildBaseOperationsResponse(),
+    ...overrides,
+  };
+}
+
+function buildBaseOperationsResponse(): OperationsStatusResponse {
   return {
     status: "ready" as const,
     service: "docsearch-ai",
@@ -88,6 +129,7 @@ function buildOperationsResponse() {
         message: "Qdrant 연결이 정상입니다.",
       },
     ],
+    events: [],
     settings: {
       environment: "development",
       debug: false,
