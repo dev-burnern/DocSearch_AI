@@ -31,6 +31,8 @@ def test_settings_load_default_values():
     assert settings.indexing_queue_max_attempts == 3
     assert settings.document_max_bytes == 10485760
     assert settings.chat_min_relevance_score == 0.2
+    assert settings.llm_max_retries == 2
+    assert settings.llm_retry_backoff_seconds == 0.5
 
 
 def test_settings_enable_dependency_health_checks_by_default_in_production(
@@ -107,6 +109,18 @@ def test_settings_allow_chat_relevance_threshold_override(
     settings = get_settings()
 
     assert settings.chat_min_relevance_score == 0.45
+
+
+def test_settings_allow_llm_retry_policy_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("LLM_MAX_RETRIES", "4")
+    monkeypatch.setenv("LLM_RETRY_BACKOFF_SECONDS", "0.25")
+
+    settings = get_settings()
+
+    assert settings.llm_max_retries == 4
+    assert settings.llm_retry_backoff_seconds == 0.25
 
 
 def test_health_route_returns_expected_contract():

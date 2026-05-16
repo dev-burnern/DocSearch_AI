@@ -1,3 +1,4 @@
+import time
 from typing import Any
 
 import httpx
@@ -31,29 +32,57 @@ class VLLMClient:
             ),
         }
 
-        headers = self._build_headers()
-        try:
-            response = self._http_client.post(
-                f"{self._profile.base_url}/chat/completions",
-                json=payload,
-                headers=headers,
-                timeout=self._profile.timeout_seconds,
-            )
-        except httpx.HTTPError as exc:
-            raise LLMProviderError(f"vLLM request failed: {exc}") from exc
+        return self._post_with_retry(payload=payload, headers=self._build_headers())
 
-        if response.status_code >= 400:
-            raise LLMProviderError(
-                f"vLLM request failed with HTTP {response.status_code}: "
-                f"{_extract_error_message(response)}",
-            )
+    def _post_with_retry(
+        self,
+        *,
+        payload: dict[str, object],
+        headers: dict[str, str],
+    ) -> LLMResponse:
+        attempts = self._profile.max_retries + 1
+        last_error: LLMProviderError | None = None
 
-        try:
-            response_body = response.json()
-        except ValueError as exc:
-            raise LLMProviderError("vLLM response was not valid JSON") from exc
+        for attempt in range(attempts):
+            try:
+                response = self._http_client.post(
+                    f"{self._profile.base_url}/chat/completions",
+                    json=payload,
+                    headers=headers,
+                    timeout=self._profile.timeout_seconds,
+                )
+            except httpx.HTTPError as exc:
+                last_error = LLMProviderError(f"vLLM request failed: {exc}")
+                if attempt < attempts - 1:
+                    self._sleep_before_retry()
+                    continue
+                raise last_error from exc
 
-        return self._parse_response(response_body)
+            if response.status_code >= 400:
+                error = LLMProviderError(
+                    f"vLLM request failed with HTTP {response.status_code}: "
+                    f"{_extract_error_message(response)}",
+                )
+                if _should_retry_status(response.status_code) and attempt < attempts - 1:
+                    last_error = error
+                    self._sleep_before_retry()
+                    continue
+                raise error
+
+            try:
+                response_body = response.json()
+            except ValueError as exc:
+                raise LLMProviderError("vLLM response was not valid JSON") from exc
+
+            return self._parse_response(response_body)
+
+        if last_error is not None:
+            raise last_error
+        raise LLMProviderError("vLLM request failed")
+
+    def _sleep_before_retry(self) -> None:
+        if self._profile.retry_backoff_seconds > 0:
+            time.sleep(self._profile.retry_backoff_seconds)
 
     def _build_headers(self) -> dict[str, str]:
         headers = {"Content-Type": "application/json"}
@@ -110,6 +139,10 @@ def _extract_error_message(response: httpx.Response) -> str:
             return error
 
     return response.text
+
+
+def _should_retry_status(status_code: int) -> bool:
+    return status_code == 429 or status_code >= 500
 
 
 def _optional_int(value: Any) -> int | None:
