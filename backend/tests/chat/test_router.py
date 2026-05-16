@@ -104,6 +104,85 @@ def test_채팅_API가_워크스페이스_인증_후_답변을_반환한다(
     }
 
 
+def test_member_chat_without_security_filter_is_scoped_to_allowed_levels(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DOCSEARCH_API_KEYS",
+        "local-dev-key|workspace-alpha|Workspace Alpha|member",
+    )
+
+    from backend.app.chat.router import get_chat_service
+
+    fake_service = FakeChatService()
+    app = create_app()
+    app.dependency_overrides[get_chat_service] = lambda: fake_service
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/chat",
+        headers={"X-API-Key": "local-dev-key"},
+        json={"question": "정책 문서 요약해줘"},
+    )
+
+    assert response.status_code == 200
+    assert fake_service.chat_request is not None
+    assert fake_service.chat_request.security_levels == ["general", "internal"]
+
+
+def test_member_chat_rejects_restricted_security_level(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DOCSEARCH_API_KEYS",
+        "local-dev-key|workspace-alpha|Workspace Alpha|member",
+    )
+
+    from backend.app.chat.router import get_chat_service
+
+    app = create_app()
+    app.dependency_overrides[get_chat_service] = lambda: FakeChatService()
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/chat",
+        headers={"X-API-Key": "local-dev-key"},
+        json={
+            "question": "정책 문서 요약해줘",
+            "security_levels": ["restricted"],
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "DOCUMENT_SECURITY_FORBIDDEN"
+
+
+def test_admin_chat_without_security_filter_keeps_unrestricted_filter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DOCSEARCH_API_KEYS",
+        "local-dev-key|workspace-alpha|Workspace Alpha|admin",
+    )
+
+    from backend.app.chat.router import get_chat_service
+
+    fake_service = FakeChatService()
+    app = create_app()
+    app.dependency_overrides[get_chat_service] = lambda: fake_service
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/chat",
+        headers={"X-API-Key": "local-dev-key"},
+        json={"question": "정책 문서 요약해줘"},
+    )
+
+    assert response.status_code == 200
+    assert fake_service.chat_request is not None
+    assert fake_service.chat_request.security_levels is None
+
+
 def test_채팅_API는_API_Key가_없으면_거부한다() -> None:
     app = create_app()
     client = TestClient(app)

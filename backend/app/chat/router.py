@@ -12,7 +12,10 @@ from backend.app.documents.router import (
     get_qdrant_store,
     get_runtime_settings,
 )
-from backend.app.documents.security import validate_document_security_levels
+from backend.app.documents.security import (
+    DocumentSecurityPermissionError,
+    filter_document_security_levels_for_role,
+)
 from backend.app.indexing.embedder import EmbeddingProviderError
 from backend.app.llm.base import LLMClient, LLMProviderError
 from backend.app.llm.profiles import get_default_llm_profile
@@ -77,11 +80,13 @@ async def answer_question(
     chat_service: ChatService = Depends(get_chat_service),
 ) -> ChatResponse:
     try:
+        security_levels = filter_document_security_levels_for_role(
+            role=workspace_context.role,
+            requested_security_levels=chat_request.security_levels,
+        )
         validated_request = chat_request.model_copy(
             update={
-                "security_levels": validate_document_security_levels(
-                    chat_request.security_levels,
-                ),
+                "security_levels": security_levels,
             },
         )
         return chat_service.answer(
@@ -96,6 +101,8 @@ async def answer_question(
                 "message": str(exc),
             },
         ) from exc
+    except DocumentSecurityPermissionError as exc:
+        raise _document_security_forbidden() from exc
     except EmbeddingProviderError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -120,3 +127,13 @@ async def answer_question(
                 "message": str(exc),
             },
         ) from exc
+
+
+def _document_security_forbidden() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "code": "DOCUMENT_SECURITY_FORBIDDEN",
+            "message": "Document security level is not allowed for this role.",
+        },
+    )

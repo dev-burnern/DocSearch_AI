@@ -8,7 +8,10 @@ from backend.app.documents.router import (
     get_qdrant_store,
     get_runtime_settings,
 )
-from backend.app.documents.security import validate_document_security_levels
+from backend.app.documents.security import (
+    DocumentSecurityPermissionError,
+    filter_document_security_levels_for_role,
+)
 from backend.app.indexing.embedder import EmbeddingProviderError
 from backend.app.retrieval.filters import RetrievalFilter
 from backend.app.retrieval.retriever import Retriever, build_retriever
@@ -37,14 +40,20 @@ async def search_documents(
     retriever: Retriever = Depends(get_search_retriever),
 ) -> SearchResponse:
     try:
+        security_levels = filter_document_security_levels_for_role(
+            role=workspace_context.role,
+            requested_security_levels=search_request.security_levels,
+        )
+    except DocumentSecurityPermissionError as exc:
+        raise _document_security_forbidden() from exc
+
+    try:
         chunks = retriever.retrieve(
             query_text=search_request.query,
             filters=RetrievalFilter(
                 workspace_id=workspace_context.workspace_id,
                 document_ids=search_request.document_ids,
-                security_levels=validate_document_security_levels(
-                    search_request.security_levels,
-                ),
+                security_levels=security_levels,
             ),
             limit=search_request.limit,
         )
@@ -74,4 +83,14 @@ async def search_documents(
         query=search_request.query,
         total=len(results),
         results=results,
+    )
+
+
+def _document_security_forbidden() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "code": "DOCUMENT_SECURITY_FORBIDDEN",
+            "message": "Document security level is not allowed for this role.",
+        },
     )

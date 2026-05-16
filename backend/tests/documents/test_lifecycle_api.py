@@ -51,11 +51,13 @@ def _record(
     document_id: str = "doc-1",
     *,
     workspace_id: str = "workspace-alpha",
+    security_level: str = "internal",
 ) -> DocumentRecord:
     return DocumentRecord(
         document_id=document_id,
         workspace_id=workspace_id,
         workspace_name="Workspace Alpha",
+        security_level=security_level,
         filename="memo.txt",
         parser="text",
         character_count=15,
@@ -79,6 +81,7 @@ def clear_settings_cache() -> None:
 def storage() -> InMemoryStorage:
     storage = InMemoryStorage()
     storage.by_key["workspace-alpha/doc-1/memo.txt"] = b"hello docsearch"
+    storage.by_key["workspace-alpha/doc-restricted/memo.txt"] = b"restricted doc"
     return storage
 
 
@@ -86,6 +89,7 @@ def storage() -> InMemoryStorage:
 def document_store() -> InMemoryDocumentMetadataStore:
     store = InMemoryDocumentMetadataStore()
     store.record_document(_record())
+    store.record_document(_record("doc-restricted", security_level="restricted"))
     store.record_document(_record("doc-beta", workspace_id="workspace-beta"))
     return store
 
@@ -158,6 +162,16 @@ def test_다른_워크스페이스_문서_삭제는_404를_반환한다(
     assert response.json()["detail"]["code"] == "DOCUMENT_NOT_FOUND"
 
 
+def test_member_cannot_delete_restricted_document(client: TestClient) -> None:
+    response = client.delete(
+        "/v1/documents/doc-restricted",
+        headers={"X-API-Key": "local-dev-key"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "DOCUMENT_SECURITY_FORBIDDEN"
+
+
 def test_문서_재인덱싱이_기존_원본으로_새_작업을_실행하고_메타데이터를_갱신한다(
     client: TestClient,
     document_store: InMemoryDocumentMetadataStore,
@@ -183,3 +197,13 @@ def test_문서_재인덱싱이_기존_원본으로_새_작업을_실행하고_�
     )
     assert stored is not None
     assert stored.indexing_job_id == body["indexing_job_id"]
+
+
+def test_member_cannot_reindex_restricted_document(client: TestClient) -> None:
+    response = client.post(
+        "/v1/documents/doc-restricted/reindex",
+        headers={"X-API-Key": "local-dev-key"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "DOCUMENT_SECURITY_FORBIDDEN"
