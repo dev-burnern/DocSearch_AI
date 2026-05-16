@@ -19,7 +19,7 @@ from backend.app.llm.vllm_client import VLLMClient
 from backend.app.reranking.base import Reranker, RerankerProviderError, ScorePreservingReranker
 from backend.app.reranking.bge_client import BGERerankerClient
 from backend.app.reranking.profiles import get_default_reranker_profile
-from backend.app.retrieval.retriever import DenseRetriever
+from backend.app.retrieval.retriever import Retriever, build_retriever
 
 
 router = APIRouter(prefix="/v1/chat", tags=["chat"])
@@ -28,8 +28,13 @@ router = APIRouter(prefix="/v1/chat", tags=["chat"])
 def get_retriever(
     embedder=Depends(get_embedder),
     vector_store=Depends(get_qdrant_store),
-) -> DenseRetriever:
-    return DenseRetriever(embedder=embedder, vector_store=vector_store)
+    settings: Settings = Depends(get_runtime_settings),
+) -> Retriever:
+    return build_retriever(
+        settings=settings,
+        embedder=embedder,
+        vector_store=vector_store,
+    )
 
 
 def get_llm_client(
@@ -47,7 +52,7 @@ def get_reranker(
 
 
 def get_chat_service(
-    retriever: DenseRetriever = Depends(get_retriever),
+    retriever: Retriever = Depends(get_retriever),
     reranker: Reranker = Depends(get_reranker),
     llm_client: LLMClient = Depends(get_llm_client),
     audit_log: AuditLogStore = Depends(get_audit_log_store),

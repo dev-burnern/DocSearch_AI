@@ -51,6 +51,10 @@ services:
       CHAT_RETRIEVAL_LIMIT: "5"
       CHAT_RERANK_TOP_K: "5"
       CHAT_MIN_RELEVANCE_SCORE: "0.2"
+      RETRIEVAL_MODE: dense
+      HYBRID_DENSE_WEIGHT: "0.7"
+      HYBRID_LEXICAL_WEIGHT: "0.3"
+      HYBRID_CANDIDATE_LIMIT: "50"
       EMBEDDING_BACKEND: deterministic
       EMBEDDING_BASE_URL: http://embedding:8002/v1
       EMBEDDING_MODEL: BAAI/bge-m3

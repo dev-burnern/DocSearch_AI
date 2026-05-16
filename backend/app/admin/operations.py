@@ -52,6 +52,10 @@ class OperationsSettingsSummary(BaseModel):
     debug: bool
     dependency_health_checks_enabled: bool
     dependency_health_timeout_seconds: float
+    retrieval_mode: str
+    hybrid_dense_weight: float
+    hybrid_lexical_weight: float
+    hybrid_candidate_limit: int
     rate_limit: RateLimitSettingsSummary
     backends: BackendSettingsSummary
     models: ModelSettingsSummary
@@ -101,6 +105,10 @@ def _build_settings_summary(settings: Settings) -> OperationsSettingsSummary:
         debug=settings.debug,
         dependency_health_checks_enabled=settings.dependency_health_checks_enabled,
         dependency_health_timeout_seconds=settings.dependency_health_timeout_seconds,
+        retrieval_mode=settings.retrieval_mode,
+        hybrid_dense_weight=settings.hybrid_dense_weight,
+        hybrid_lexical_weight=settings.hybrid_lexical_weight,
+        hybrid_candidate_limit=settings.hybrid_candidate_limit,
         rate_limit=RateLimitSettingsSummary(
             enabled=settings.rate_limit_enabled,
             backend=settings.rate_limit_backend,

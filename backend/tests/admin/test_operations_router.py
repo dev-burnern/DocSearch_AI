@@ -59,6 +59,10 @@ def test_관리자_운영상태_API가_현재_운영_요약을_반환한다(
     assert body["events"] == []
     assert body["settings"]["environment"] == "development"
     assert body["settings"]["dependency_health_checks_enabled"] is True
+    assert body["settings"]["retrieval_mode"] == "dense"
+    assert body["settings"]["hybrid_dense_weight"] == 0.7
+    assert body["settings"]["hybrid_lexical_weight"] == 0.3
+    assert body["settings"]["hybrid_candidate_limit"] == 50
     assert body["settings"]["rate_limit"] == {
         "enabled": True,
         "backend": "memory",

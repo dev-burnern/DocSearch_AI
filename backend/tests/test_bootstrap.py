@@ -38,6 +38,10 @@ def test_settings_load_default_values():
     assert settings.embedding_model == "BAAI/bge-m3"
     assert settings.embedding_api_key is None
     assert settings.embedding_timeout_seconds == 10.0
+    assert settings.retrieval_mode == "dense"
+    assert settings.hybrid_dense_weight == 0.7
+    assert settings.hybrid_lexical_weight == 0.3
+    assert settings.hybrid_candidate_limit == 50
 
 
 def test_settings_enable_dependency_health_checks_by_default_in_production(
@@ -146,6 +150,22 @@ def test_settings_allow_embedding_backend_overrides(
     assert settings.embedding_api_key == "embedding-secret"
     assert settings.embedding_timeout_seconds == 2.5
     assert settings.embedding_vector_size == 1024
+
+
+def test_settings_allow_hybrid_search_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("RETRIEVAL_MODE", "hybrid")
+    monkeypatch.setenv("HYBRID_DENSE_WEIGHT", "0.6")
+    monkeypatch.setenv("HYBRID_LEXICAL_WEIGHT", "0.4")
+    monkeypatch.setenv("HYBRID_CANDIDATE_LIMIT", "80")
+
+    settings = get_settings()
+
+    assert settings.retrieval_mode == "hybrid"
+    assert settings.hybrid_dense_weight == 0.6
+    assert settings.hybrid_lexical_weight == 0.4
+    assert settings.hybrid_candidate_limit == 80
 
 
 def test_health_route_returns_expected_contract():
