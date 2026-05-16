@@ -1,7 +1,11 @@
+import { buildAuthHeaders } from "./auth-api";
+import { DocumentSecurityLevel } from "./document-api";
+
 export interface SearchSubmitPayload {
-  apiKey: string;
+  authToken: string;
   query: string;
   documentIds: string[];
+  securityLevels: DocumentSecurityLevel[];
   limit: number;
 }
 
@@ -9,6 +13,7 @@ export interface SearchResultChunk {
   document_id: string;
   filename: string;
   parser: string;
+  security_level: DocumentSecurityLevel;
   chunk_index: number;
   score: number;
   snippet: string;
@@ -56,11 +61,12 @@ export function createSearchApiClient(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-API-Key": payload.apiKey,
+          ...buildAuthHeaders(payload.authToken),
         },
         body: JSON.stringify({
           query: payload.query,
           document_ids: payload.documentIds,
+          security_levels: payload.securityLevels,
           limit: payload.limit,
         }),
       });

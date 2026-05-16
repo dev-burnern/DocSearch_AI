@@ -1,21 +1,32 @@
+import { buildAuthHeaders } from "./auth-api";
+
 export interface DocumentUploadPayload {
-  apiKey: string;
+  authToken: string;
   file: File;
+  securityLevel: DocumentSecurityLevel;
 }
 
 export interface DocumentListPayload {
-  apiKey: string;
+  authToken: string;
 }
 
 export interface DocumentActionPayload {
-  apiKey: string;
+  authToken: string;
   documentId: string;
 }
+
+export type DocumentSecurityLevel =
+  | "general"
+  | "internal"
+  | "confidential"
+  | "restricted";
 
 export interface DocumentUploadResponse {
   document_id: string;
   workspace_id: string;
   workspace_name: string;
+  uploaded_by_employee_id?: string | null;
+  security_level?: DocumentSecurityLevel;
   filename: string;
   parser: string;
   character_count: number;
@@ -79,12 +90,11 @@ export function createDocumentApiClient(
     ): Promise<DocumentUploadResponse> {
       const formData = new FormData();
       formData.append("file", payload.file);
+      formData.append("security_level", payload.securityLevel);
 
       const response = await fetcher(`${baseUrl}/v1/documents`, {
         method: "POST",
-        headers: {
-          "X-API-Key": payload.apiKey,
-        },
+        headers: buildAuthHeaders(payload.authToken),
         body: formData,
       });
 
@@ -100,9 +110,7 @@ export function createDocumentApiClient(
     ): Promise<DocumentListResponse> {
       const response = await fetcher(`${baseUrl}/v1/documents`, {
         method: "GET",
-        headers: {
-          "X-API-Key": payload.apiKey,
-        },
+        headers: buildAuthHeaders(payload.authToken),
       });
 
       if (!response.ok) {
@@ -119,9 +127,7 @@ export function createDocumentApiClient(
         `${baseUrl}/v1/documents/${encodeURIComponent(payload.documentId)}`,
         {
           method: "DELETE",
-          headers: {
-            "X-API-Key": payload.apiKey,
-          },
+          headers: buildAuthHeaders(payload.authToken),
         },
       );
 
@@ -137,9 +143,7 @@ export function createDocumentApiClient(
         `${baseUrl}/v1/documents/${encodeURIComponent(payload.documentId)}/reindex`,
         {
           method: "POST",
-          headers: {
-            "X-API-Key": payload.apiKey,
-          },
+          headers: buildAuthHeaders(payload.authToken),
         },
       );
 

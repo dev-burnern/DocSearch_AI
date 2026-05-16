@@ -1,7 +1,9 @@
+import { buildAuthHeaders } from "./auth-api";
+
 export type OperationsStatus = "ready" | "not_ready";
 
 export interface OperationsStatusRequest {
-  apiKey: string;
+  authToken: string;
 }
 
 export interface OperationsWorkspaceSummary {
@@ -117,9 +119,7 @@ export function createOperationsApiClient(
     ): Promise<OperationsStatusResponse> {
       const response = await fetcher(`${baseUrl}/v1/admin/operations`, {
         method: "GET",
-        headers: {
-          "X-API-Key": payload.apiKey,
-        },
+        headers: buildAuthHeaders(payload.authToken),
       });
 
       if (!response.ok) {

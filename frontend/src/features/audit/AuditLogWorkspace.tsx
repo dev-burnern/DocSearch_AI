@@ -26,19 +26,18 @@ const { Paragraph, Text, Title } = Typography;
 interface AuditLogWorkspaceProps {
   client?: AuditLogClient;
   downloadFile?: (file: AuditLogExportResponse) => void;
-  apiKey?: string;
+  authToken: string;
 }
 
 export function AuditLogWorkspace({
   client,
   downloadFile = downloadTextFile,
-  apiKey: confirmedApiKey,
+  authToken,
 }: AuditLogWorkspaceProps) {
   const auditLogClient = useMemo(
     () => client ?? createAuditLogApiClient(),
     [client],
   );
-  const [apiKey, setApiKey] = useState("");
   const [response, setResponse] = useState<ChatAuditEventListResponse | null>(
     null,
   );
@@ -53,8 +52,7 @@ export function AuditLogWorkspace({
   const [occurredTo, setOccurredTo] = useState("");
   const [limit, setLimit] = useState(100);
 
-  const resolvedApiKey = confirmedApiKey ?? apiKey.trim();
-  const hasApiKey = resolvedApiKey.length > 0;
+  const hasApiKey = authToken.length > 0;
   const canSubmit = hasApiKey && !isLoading;
   const canExport = hasApiKey && !isExporting;
 
@@ -107,7 +105,7 @@ export function AuditLogWorkspace({
 
   function buildAuditLogRequest() {
     return {
-      apiKey: resolvedApiKey,
+      authToken,
       query: normalizeOptionalText(query),
       documentId: normalizeOptionalText(documentId),
       requestId: normalizeOptionalText(requestId),
@@ -129,20 +127,6 @@ export function AuditLogWorkspace({
             void loadAuditLogs();
           }}
         >
-          {confirmedApiKey ? null : (
-            <>
-              <label className="field-label" htmlFor="audit-api-key">
-                API Key
-              </label>
-              <Input.Password
-                id="audit-api-key"
-                autoComplete="off"
-                value={apiKey}
-                onChange={(event) => setApiKey(event.target.value)}
-              />
-            </>
-          )}
-
           <label className="field-label" htmlFor="audit-query">
             검색어
           </label>
