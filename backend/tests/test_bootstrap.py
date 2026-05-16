@@ -29,6 +29,7 @@ def test_settings_load_default_values():
     assert settings.rate_limit_fail_open is True
     assert settings.indexing_queue_redis_key == "docsearch:indexing:queue"
     assert settings.indexing_queue_max_attempts == 3
+    assert settings.document_max_bytes == 10485760
 
 
 def test_settings_enable_dependency_health_checks_by_default_in_production(
@@ -85,6 +86,16 @@ def test_settings_allow_dependency_health_timeout_override(
     settings = get_settings()
 
     assert settings.dependency_health_timeout_seconds == 3.5
+
+
+def test_settings_allow_document_size_override(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("DOCUMENT_MAX_BYTES", "4096")
+
+    settings = get_settings()
+
+    assert settings.document_max_bytes == 4096
 
 
 def test_health_route_returns_expected_contract():

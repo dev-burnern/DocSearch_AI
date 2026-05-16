@@ -1,6 +1,10 @@
 import re
 
-from backend.app.parsers.base import ParsedDocument, build_parsed_document
+from backend.app.parsers.base import (
+    CorruptDocumentError,
+    ParsedDocument,
+    build_parsed_document,
+)
 
 
 class MarkdownParser:
@@ -8,7 +12,11 @@ class MarkdownParser:
     supported_extensions = (".md", ".markdown")
 
     def parse(self, data: bytes) -> ParsedDocument:
-        text = data.decode("utf-8", errors="replace")
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise CorruptDocumentError("Document is not valid UTF-8.") from exc
+
         cleaned = re.sub(r"`+", "", text)
         cleaned = re.sub(r"^\s{0,3}#{1,6}\s*", "", cleaned, flags=re.MULTILINE)
         cleaned = re.sub(r"^\s*[-*+]\s+", "", cleaned, flags=re.MULTILINE)

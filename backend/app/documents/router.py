@@ -30,7 +30,7 @@ from backend.app.indexing.pipeline import IndexingPipeline
 from backend.app.jobs.base import JobQueue
 from backend.app.jobs.inprocess import InProcessJobQueue
 from backend.app.jobs.redis_queue import create_redis_job_queue
-from backend.app.parsers.base import ParserRegistry
+from backend.app.parsers.base import DocumentProcessingError, ParserRegistry
 from backend.app.retrieval.qdrant_store import QdrantVectorStore
 from backend.app.storage.minio import StorageService, create_minio_storage_service
 from qdrant_client import QdrantClient
@@ -140,6 +140,7 @@ def get_document_service(
     job_queue: JobQueue = Depends(get_job_queue),
     document_metadata_store: DocumentMetadataStore = Depends(get_document_metadata_store),
     vector_store: QdrantVectorStore = Depends(get_qdrant_store),
+    settings: Settings = Depends(get_runtime_settings),
 ) -> DocumentService:
     return DocumentService(
         parser_registry=parser_registry,
@@ -147,6 +148,7 @@ def get_document_service(
         job_queue=job_queue,
         document_metadata_store=document_metadata_store,
         vector_store=vector_store,
+        max_document_bytes=settings.document_max_bytes,
     )
 
 
@@ -164,14 +166,8 @@ async def upload_document(
             content_type=file.content_type or "application/octet-stream",
             data=data,
         )
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "code": "DOCUMENT_UNSUPPORTED_TYPE",
-                "message": str(exc),
-            },
-        ) from exc
+    except DocumentProcessingError as exc:
+        raise _document_processing_error(exc) from exc
 
 
 @router.get("", response_model=DocumentListResponse)
@@ -215,14 +211,8 @@ async def reindex_document(
         )
     except DocumentNotFoundError as exc:
         raise _document_not_found(document_id) from exc
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "code": "DOCUMENT_UNSUPPORTED_TYPE",
-                "message": str(exc),
-            },
-        ) from exc
+    except DocumentProcessingError as exc:
+        raise _document_processing_error(exc) from exc
 
 
 def _document_not_found(document_id: str) -> HTTPException:
@@ -231,5 +221,20 @@ def _document_not_found(document_id: str) -> HTTPException:
         detail={
             "code": "DOCUMENT_NOT_FOUND",
             "message": f"Document not found: {document_id}",
+        },
+    )
+
+
+def _document_processing_error(exc: DocumentProcessingError) -> HTTPException:
+    status_code = (
+        status.HTTP_413_CONTENT_TOO_LARGE
+        if exc.code == "DOCUMENT_TOO_LARGE"
+        else status.HTTP_400_BAD_REQUEST
+    )
+    return HTTPException(
+        status_code=status_code,
+        detail={
+            "code": exc.code,
+            "message": str(exc),
         },
     )

@@ -1,4 +1,8 @@
-from backend.app.parsers.base import ParsedDocument, build_parsed_document
+from backend.app.parsers.base import (
+    CorruptDocumentError,
+    ParsedDocument,
+    build_parsed_document,
+)
 
 
 class TextParser:
@@ -6,5 +10,9 @@ class TextParser:
     supported_extensions = (".txt",)
 
     def parse(self, data: bytes) -> ParsedDocument:
-        text = data.decode("utf-8", errors="replace")
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise CorruptDocumentError("Document is not valid UTF-8.") from exc
+
         return build_parsed_document(parser_name=self.name, text=text)

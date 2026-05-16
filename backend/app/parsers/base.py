@@ -6,6 +6,26 @@ from typing import Iterable, Protocol
 PREVIEW_LIMIT = 200
 
 
+class DocumentProcessingError(ValueError):
+    code = "DOCUMENT_PROCESSING_FAILED"
+
+
+class UnsupportedDocumentTypeError(DocumentProcessingError):
+    code = "DOCUMENT_UNSUPPORTED_TYPE"
+
+
+class EmptyDocumentError(DocumentProcessingError):
+    code = "DOCUMENT_EMPTY"
+
+
+class CorruptDocumentError(DocumentProcessingError):
+    code = "DOCUMENT_CORRUPT"
+
+
+class DocumentTooLargeError(DocumentProcessingError):
+    code = "DOCUMENT_TOO_LARGE"
+
+
 @dataclass(frozen=True)
 class ParsedDocument:
     parser_name: str
@@ -24,6 +44,9 @@ class DocumentParser(Protocol):
 
 def build_parsed_document(*, parser_name: str, text: str) -> ParsedDocument:
     normalized_text = normalize_text(text)
+    if not normalized_text:
+        raise EmptyDocumentError("Document is empty after parsing.")
+
     return ParsedDocument(
         parser_name=parser_name,
         text=normalized_text,
@@ -49,7 +72,7 @@ class ParserRegistry:
         extension = Path(filename).suffix.lower()
         parser = self._parsers.get(extension)
         if parser is None:
-            raise ValueError(f"Unsupported document type: {extension}")
+            raise UnsupportedDocumentTypeError(f"Unsupported document type: {extension}")
 
         return parser.parse(data)
 
@@ -58,5 +81,6 @@ class ParserRegistry:
         from backend.app.parsers.markdown import MarkdownParser
         from backend.app.parsers.pdf import PdfParser
         from backend.app.parsers.text import TextParser
+        from backend.app.parsers.docx import DocxParser
 
-        return (TextParser(), MarkdownParser(), PdfParser())
+        return (TextParser(), MarkdownParser(), PdfParser(), DocxParser())
