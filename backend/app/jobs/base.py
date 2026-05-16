@@ -18,6 +18,7 @@ class JobDispatchResult:
     job_id: str
     status: str
     chunk_count: int = 0
+    failure_reason: str | None = None
 
 
 class JobQueue(Protocol):

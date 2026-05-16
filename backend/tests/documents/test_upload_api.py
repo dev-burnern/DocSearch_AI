@@ -4,6 +4,7 @@ from qdrant_client import QdrantClient
 
 from backend.app.core.config import get_settings
 from backend.app.documents.store import InMemoryDocumentMetadataStore
+from backend.app.jobs.base import JobDispatchResult
 from backend.app.main import create_app
 
 
@@ -119,6 +120,51 @@ def test_문서_업로드가_저장소에_파일을_저장하고_메타데이터
     assert records[0].chunk_count == 1
 
 
+def test_문서_업로드는_인덱싱_실패_상태와_사유를_메타데이터에_저장한다(
+    monkeypatch: pytest.MonkeyPatch,
+    storage: InMemoryStorage,
+    document_store: InMemoryDocumentMetadataStore,
+) -> None:
+    monkeypatch.setenv(
+        "DOCSEARCH_API_KEYS",
+        "local-dev-key|workspace-alpha|Workspace Alpha",
+    )
+
+    from backend.app.documents.router import (
+        get_document_metadata_store,
+        get_job_queue,
+        get_qdrant_store,
+        get_storage_service,
+    )
+    from backend.app.retrieval.qdrant_store import QdrantVectorStore
+
+    app = create_app()
+    app.dependency_overrides[get_storage_service] = lambda: storage
+    app.dependency_overrides[get_document_metadata_store] = lambda: document_store
+    app.dependency_overrides[get_qdrant_store] = lambda: QdrantVectorStore(
+        client=QdrantClient(":memory:"),
+        collection_name="docsearch_chunks",
+        vector_size=8,
+    )
+    app.dependency_overrides[get_job_queue] = lambda: FailedJobQueue()
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/documents",
+        headers={"X-API-Key": "local-dev-key"},
+        files={"file": ("memo.txt", b"hello docsearch", "text/plain")},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["indexing_status"] == "failed"
+    assert body["indexing_error"] == "parser failed"
+    assert body["chunk_count"] == 0
+    records = document_store.list_documents(workspace_id="workspace-alpha")
+    assert records[0].indexing_status == "failed"
+    assert records[0].indexing_error == "parser failed"
+
+
 def test_지원하지_않는_확장자는_거부한다(client: TestClient) -> None:
     response = client.post(
         "/v1/documents",
@@ -133,3 +179,13 @@ def test_지원하지_않는_확장자는_거부한다(client: TestClient) -> No
             "message": "Unsupported document type: .csv",
         }
     }
+
+
+class FailedJobQueue:
+    def enqueue(self, job) -> JobDispatchResult:
+        return JobDispatchResult(
+            job_id=job.job_id,
+            status="failed",
+            chunk_count=0,
+            failure_reason="parser failed",
+        )

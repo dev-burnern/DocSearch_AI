@@ -30,6 +30,7 @@ class PostgresDocumentMetadataStore:
                     storage_key,
                     indexing_job_id,
                     indexing_status,
+                    indexing_error,
                     chunk_count,
                     uploaded_at
                 )
@@ -44,6 +45,7 @@ class PostgresDocumentMetadataStore:
                     %(storage_key)s,
                     %(indexing_job_id)s,
                     %(indexing_status)s,
+                    %(indexing_error)s,
                     %(chunk_count)s,
                     %(uploaded_at)s
                 )
@@ -56,6 +58,7 @@ class PostgresDocumentMetadataStore:
                     storage_key = EXCLUDED.storage_key,
                     indexing_job_id = EXCLUDED.indexing_job_id,
                     indexing_status = EXCLUDED.indexing_status,
+                    indexing_error = EXCLUDED.indexing_error,
                     chunk_count = EXCLUDED.chunk_count,
                     uploaded_at = EXCLUDED.uploaded_at
                 """,
@@ -83,6 +86,7 @@ class PostgresDocumentMetadataStore:
                     storage_key,
                     indexing_job_id,
                     indexing_status,
+                    indexing_error,
                     chunk_count,
                     uploaded_at
                 FROM document_metadata
@@ -164,9 +168,16 @@ class PostgresDocumentMetadataStore:
                     storage_key TEXT NOT NULL,
                     indexing_job_id TEXT NOT NULL,
                     indexing_status TEXT NOT NULL,
+                    indexing_error TEXT,
                     chunk_count INTEGER NOT NULL,
                     uploaded_at TIMESTAMPTZ NOT NULL
                 )
+                """
+            )
+            connection.execute(
+                """
+                ALTER TABLE document_metadata
+                ADD COLUMN IF NOT EXISTS indexing_error TEXT
                 """
             )
             connection.execute(
@@ -196,6 +207,7 @@ def _document_columns() -> str:
                     storage_key,
                     indexing_job_id,
                     indexing_status,
+                    indexing_error,
                     chunk_count,
                     uploaded_at
     """

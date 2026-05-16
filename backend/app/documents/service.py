@@ -75,6 +75,7 @@ class DocumentService:
             storage_key=storage_key,
             indexing_job_id=dispatch.job_id,
             indexing_status=dispatch.status,
+            indexing_error=dispatch.failure_reason,
             chunk_count=dispatch.chunk_count,
         )
         self._document_metadata_store.record_document(
@@ -154,6 +155,7 @@ class DocumentService:
                 "text_preview": parsed.preview,
                 "indexing_job_id": dispatch.job_id,
                 "indexing_status": dispatch.status,
+                "indexing_error": dispatch.failure_reason,
                 "chunk_count": dispatch.chunk_count,
             }
         )

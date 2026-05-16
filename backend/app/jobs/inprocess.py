@@ -20,7 +20,12 @@ class InProcessJobQueue:
             result = self._processor(job)
         except Exception as exc:
             self._record_failure_event(job, exc)
-            raise
+            return JobDispatchResult(
+                job_id=job.job_id,
+                status="failed",
+                chunk_count=0,
+                failure_reason=str(exc),
+            )
 
         return JobDispatchResult(
             job_id=job.job_id,
