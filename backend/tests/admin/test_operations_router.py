@@ -72,7 +72,16 @@ def test_관리자_운영상태_API가_현재_운영_요약을_반환한다(
         "indexing_queue": "inprocess",
         "reranker": "score",
     }
-    assert body["settings"]["models"]["llm"] == "google/gemma-4-E4B-it"
+    assert body["settings"]["models"] == {
+        "llm": "google/gemma-4-E4B-it",
+        "llm_timeout_seconds": 30.0,
+        "llm_max_tokens": 1024,
+        "llm_temperature": 0.2,
+        "llm_max_retries": 2,
+        "llm_retry_backoff_seconds": 0.5,
+        "reranker": "BAAI/bge-reranker-v2-m3",
+        "embedding_vector_size": 8,
+    }
     assert checker.called is True
 
 

@@ -36,6 +36,11 @@ class BackendSettingsSummary(BaseModel):
 
 class ModelSettingsSummary(BaseModel):
     llm: str
+    llm_timeout_seconds: float
+    llm_max_tokens: int
+    llm_temperature: float
+    llm_max_retries: int
+    llm_retry_backoff_seconds: float
     reranker: str
     embedding_vector_size: int
 
@@ -109,6 +114,11 @@ def _build_settings_summary(settings: Settings) -> OperationsSettingsSummary:
         ),
         models=ModelSettingsSummary(
             llm=settings.llm_model,
+            llm_timeout_seconds=settings.llm_timeout_seconds,
+            llm_max_tokens=settings.llm_max_tokens,
+            llm_temperature=settings.llm_temperature,
+            llm_max_retries=settings.llm_max_retries,
+            llm_retry_backoff_seconds=settings.llm_retry_backoff_seconds,
             reranker=settings.reranker_model,
             embedding_vector_size=settings.embedding_vector_size,
         ),
