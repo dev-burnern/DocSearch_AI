@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from backend.app.core.config import get_settings
+from backend.app.indexing.embedder import EmbeddingProviderError
 from backend.app.main import create_app
 from backend.app.retrieval.qdrant_store import RetrievedChunk
 
@@ -29,6 +30,11 @@ class FakeRetriever:
                 score=0.87,
             )
         ]
+
+
+class FailingRetriever:
+    def retrieve(self, *, query_text, filters, limit):
+        raise EmbeddingProviderError("embedding unavailable")
 
 
 @pytest.fixture(autouse=True)
@@ -95,3 +101,30 @@ def test_검색_API는_API_Key가_없으면_거부한다() -> None:
 
     assert response.status_code == 401
     assert response.json()["detail"]["code"] == "AUTH_MISSING_API_KEY"
+
+
+def test_search_api_returns_502_when_embedding_backend_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DOCSEARCH_API_KEYS",
+        "local-dev-key|workspace-alpha|Workspace Alpha",
+    )
+
+    from backend.app.search.router import get_search_retriever
+
+    app = create_app()
+    app.dependency_overrides[get_search_retriever] = lambda: FailingRetriever()
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/search",
+        headers={"X-API-Key": "local-dev-key"},
+        json={"query": "question"},
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == {
+        "code": "SEARCH_EMBEDDING_UNAVAILABLE",
+        "message": "embedding unavailable",
+    }

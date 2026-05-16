@@ -32,6 +32,8 @@ describe("OperationsStatusWorkspace", () => {
     expect(screen.getByText("Qdrant 연결이 정상입니다.")).toBeInTheDocument();
     expect(screen.getByText("기록된 운영 이벤트가 없습니다.")).toBeInTheDocument();
     expect(screen.getByText("google/gemma-4-E4B-it")).toBeInTheDocument();
+    expect(screen.getByText("embedding backend deterministic")).toBeInTheDocument();
+    expect(screen.getByText("BAAI/bge-m3")).toBeInTheDocument();
   });
 
   it("운영 이벤트를 표시한다", async () => {
@@ -146,10 +148,17 @@ function buildBaseOperationsResponse(): OperationsStatusResponse {
         audit_log: "postgres",
         document_metadata: "postgres",
         indexing_queue: "inprocess",
+        embedding: "deterministic",
         reranker: "score",
       },
       models: {
         llm: "google/gemma-4-E4B-it",
+        llm_timeout_seconds: 30,
+        llm_max_tokens: 1024,
+        llm_temperature: 0.2,
+        llm_max_retries: 2,
+        llm_retry_backoff_seconds: 0.5,
+        embedding: "BAAI/bge-m3",
         reranker: "BAAI/bge-reranker-v2-m3",
         embedding_vector_size: 8,
       },

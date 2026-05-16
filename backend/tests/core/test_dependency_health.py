@@ -13,6 +13,7 @@ def test_dependency_health_checker_reports_required_dependencies_ready() -> None
         minio_probe=lambda settings, timeout: called.append("minio"),
         vllm_probe=lambda settings, timeout: called.append("vllm"),
         redis_probe=lambda settings, timeout: called.append("redis"),
+        embedding_probe=lambda settings, timeout: called.append("embedding"),
         reranker_probe=lambda settings, timeout: called.append("reranker"),
     )
     settings = Settings(
@@ -43,10 +44,12 @@ def test_dependency_health_checker_checks_optional_backends_when_enabled() -> No
         minio_probe=lambda settings, timeout: None,
         vllm_probe=lambda settings, timeout: None,
         redis_probe=lambda settings, timeout: called.append("redis"),
+        embedding_probe=lambda settings, timeout: called.append("embedding"),
         reranker_probe=lambda settings, timeout: called.append("reranker"),
     )
     settings = Settings(
         indexing_queue_backend="redis",
+        embedding_backend="bge",
         reranker_backend="bge",
     )
 
@@ -57,9 +60,10 @@ def test_dependency_health_checker_checks_optional_backends_when_enabled() -> No
         "minio",
         "vllm",
         "redis",
+        "embedding",
         "reranker",
     ]
-    assert called == ["redis", "reranker"]
+    assert called == ["redis", "embedding", "reranker"]
 
 
 def test_dependency_health_checker_checks_redis_when_rate_limit_uses_redis() -> None:
@@ -139,18 +143,26 @@ def test_dependency_health_checker_uses_expected_http_endpoints(
         minio_secure=False,
         llm_base_url="http://llm:8000/v1/",
         llm_api_key="local-secret",
+        embedding_backend="bge",
+        embedding_base_url="http://embedding:8002/v1/",
+        embedding_api_key="embedding-secret",
         dependency_health_timeout_seconds=1.5,
     )
 
     checks = checker.check(settings)
 
-    assert [check.status for check in checks] == ["ready", "ready", "ready"]
+    assert [check.status for check in checks] == ["ready", "ready", "ready", "ready"]
     assert calls == [
         ("http://qdrant:6333/healthz", {}, 1.5),
         ("http://minio:9000/minio/health/live", {}, 1.5),
         (
             "http://llm:8000/v1/models",
             {"Authorization": "Bearer local-secret"},
+            1.5,
+        ),
+        (
+            "http://embedding:8002/v1/models",
+            {"Authorization": "Bearer embedding-secret"},
             1.5,
         ),
     ]

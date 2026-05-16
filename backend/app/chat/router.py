@@ -12,6 +12,7 @@ from backend.app.documents.router import (
     get_qdrant_store,
     get_runtime_settings,
 )
+from backend.app.indexing.embedder import EmbeddingProviderError
 from backend.app.llm.base import LLMClient, LLMProviderError
 from backend.app.llm.profiles import get_default_llm_profile
 from backend.app.llm.vllm_client import VLLMClient
@@ -79,6 +80,14 @@ async def answer_question(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
                 "code": "CHAT_CONTEXT_NOT_FOUND",
+                "message": str(exc),
+            },
+        ) from exc
+    except EmbeddingProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": "CHAT_EMBEDDING_UNAVAILABLE",
                 "message": str(exc),
             },
         ) from exc

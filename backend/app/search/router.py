@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.app.auth.dependencies import require_workspace_context
 from backend.app.auth.models import WorkspaceContext
 from backend.app.documents.router import get_embedder, get_qdrant_store
+from backend.app.indexing.embedder import EmbeddingProviderError
 from backend.app.retrieval.filters import RetrievalFilter
 from backend.app.retrieval.retriever import DenseRetriever
 from backend.app.search.models import SearchRequest, SearchResponse, SearchResultChunk
@@ -24,14 +25,23 @@ async def search_documents(
     workspace_context: WorkspaceContext = Depends(require_workspace_context),
     retriever: DenseRetriever = Depends(get_search_retriever),
 ) -> SearchResponse:
-    chunks = retriever.retrieve(
-        query_text=search_request.query,
-        filters=RetrievalFilter(
-            workspace_id=workspace_context.workspace_id,
-            document_ids=search_request.document_ids,
-        ),
-        limit=search_request.limit,
-    )
+    try:
+        chunks = retriever.retrieve(
+            query_text=search_request.query,
+            filters=RetrievalFilter(
+                workspace_id=workspace_context.workspace_id,
+                document_ids=search_request.document_ids,
+            ),
+            limit=search_request.limit,
+        )
+    except EmbeddingProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": "SEARCH_EMBEDDING_UNAVAILABLE",
+                "message": str(exc),
+            },
+        ) from exc
 
     results = [
         SearchResultChunk(

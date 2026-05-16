@@ -27,6 +27,7 @@ class DependencyHealthChecker:
         minio_probe: DependencyProbe | None = None,
         vllm_probe: DependencyProbe | None = None,
         redis_probe: DependencyProbe | None = None,
+        embedding_probe: DependencyProbe | None = None,
         reranker_probe: DependencyProbe | None = None,
     ) -> None:
         self._postgres_probe = postgres_probe or _probe_postgres
@@ -34,6 +35,7 @@ class DependencyHealthChecker:
         self._minio_probe = minio_probe or _probe_minio
         self._vllm_probe = vllm_probe or _probe_vllm
         self._redis_probe = redis_probe or _probe_redis
+        self._embedding_probe = embedding_probe or _probe_embedding
         self._reranker_probe = reranker_probe or _probe_reranker
 
     def check(self, settings: Settings) -> list[DependencyCheckResult]:
@@ -56,6 +58,9 @@ class DependencyHealthChecker:
             or settings.rate_limit_backend == "redis"
         ):
             checks.append(("redis", "Redis", self._redis_probe))
+
+        if settings.embedding_backend == "bge":
+            checks.append(("embedding", "BGE Embedding", self._embedding_probe))
 
         if settings.reranker_backend == "bge":
             checks.append(("reranker", "BGE Reranker", self._reranker_probe))
@@ -130,6 +135,14 @@ def _probe_vllm(settings: Settings, timeout: float) -> None:
         url=f"{settings.llm_base_url.rstrip('/')}/models",
         timeout=timeout,
         api_key=settings.llm_api_key,
+    )
+
+
+def _probe_embedding(settings: Settings, timeout: float) -> None:
+    _probe_http_endpoint(
+        url=f"{settings.embedding_base_url.rstrip('/')}/models",
+        timeout=timeout,
+        api_key=settings.embedding_api_key,
     )
 
 

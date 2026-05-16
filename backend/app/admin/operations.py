@@ -31,6 +31,7 @@ class BackendSettingsSummary(BaseModel):
     audit_log: str
     document_metadata: str
     indexing_queue: str
+    embedding: str
     reranker: str
 
 
@@ -41,6 +42,7 @@ class ModelSettingsSummary(BaseModel):
     llm_temperature: float
     llm_max_retries: int
     llm_retry_backoff_seconds: float
+    embedding: str
     reranker: str
     embedding_vector_size: int
 
@@ -110,6 +112,7 @@ def _build_settings_summary(settings: Settings) -> OperationsSettingsSummary:
             audit_log=settings.audit_log_backend,
             document_metadata=settings.document_metadata_backend,
             indexing_queue=settings.indexing_queue_backend,
+            embedding=settings.embedding_backend,
             reranker=settings.reranker_backend,
         ),
         models=ModelSettingsSummary(
@@ -119,6 +122,7 @@ def _build_settings_summary(settings: Settings) -> OperationsSettingsSummary:
             llm_temperature=settings.llm_temperature,
             llm_max_retries=settings.llm_max_retries,
             llm_retry_backoff_seconds=settings.llm_retry_backoff_seconds,
+            embedding=settings.embedding_model,
             reranker=settings.reranker_model,
             embedding_vector_size=settings.embedding_vector_size,
         ),

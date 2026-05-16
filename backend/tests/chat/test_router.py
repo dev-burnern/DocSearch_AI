@@ -3,6 +3,7 @@ import pytest
 
 from backend.app.chat.models import ChatCitation, ChatRequest, ChatResponse, ChatUsage
 from backend.app.core.config import get_settings
+from backend.app.indexing.embedder import EmbeddingProviderError
 from backend.app.main import create_app
 
 
@@ -34,6 +35,11 @@ class FakeChatService:
             ),
             retrieved_chunk_count=1,
         )
+
+
+class FailingChatService:
+    def answer(self, *, workspace_context, chat_request: ChatRequest) -> ChatResponse:
+        raise EmbeddingProviderError("embedding unavailable")
 
 
 @pytest.fixture(autouse=True)
@@ -105,3 +111,30 @@ def test_채팅_API는_API_Key가_없으면_거부한다() -> None:
 
     assert response.status_code == 401
     assert response.json()["detail"]["code"] == "AUTH_MISSING_API_KEY"
+
+
+def test_chat_api_returns_502_when_embedding_backend_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DOCSEARCH_API_KEYS",
+        "local-dev-key|workspace-alpha|Workspace Alpha",
+    )
+
+    from backend.app.chat.router import get_chat_service
+
+    app = create_app()
+    app.dependency_overrides[get_chat_service] = lambda: FailingChatService()
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/chat",
+        headers={"X-API-Key": "local-dev-key"},
+        json={"question": "question"},
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == {
+        "code": "CHAT_EMBEDDING_UNAVAILABLE",
+        "message": "embedding unavailable",
+    }

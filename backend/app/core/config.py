@@ -86,6 +86,25 @@ class Settings(BaseModel):
     embedding_vector_size: int = Field(
         default_factory=lambda: int(os.getenv("EMBEDDING_VECTOR_SIZE", "8")),
     )
+    embedding_backend: Literal["deterministic", "bge"] = Field(
+        default_factory=lambda: os.getenv("EMBEDDING_BACKEND", "deterministic"),
+    )
+    embedding_base_url: str = Field(
+        default_factory=lambda: os.getenv(
+            "EMBEDDING_BASE_URL",
+            "http://embedding:8002/v1",
+        ),
+    )
+    embedding_model: str = Field(
+        default_factory=lambda: os.getenv("EMBEDDING_MODEL", "BAAI/bge-m3"),
+    )
+    embedding_api_key: str | None = Field(
+        default_factory=lambda: _optional_env("EMBEDDING_API_KEY"),
+    )
+    embedding_timeout_seconds: float = Field(
+        default_factory=lambda: float(os.getenv("EMBEDDING_TIMEOUT_SECONDS", "10.0")),
+        gt=0,
+    )
     qdrant_url: str = Field(
         default_factory=lambda: os.getenv("QDRANT_URL", "http://qdrant:6333"),
     )
