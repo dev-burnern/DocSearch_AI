@@ -65,6 +65,9 @@ docker compose -f infra/compose/docker-compose.yml up --build
 
 ## 주요 문서
 
+- [포트폴리오 요약](docs/portfolio-summary.md)
+- [아키텍처 문서](docs/architecture.md)
+- [Agent Flow 문서](docs/agent-flow.md)
 - [노트북 로컬 테스트 가이드](docs/notebook-local-test.md)
 - [LLM 운영 가이드](docs/llm-operations.md)
 - [테스트 및 성능 기준표](docs/test-performance-baseline.md)
