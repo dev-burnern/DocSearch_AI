@@ -40,6 +40,7 @@ def test_Qdrant_저장소가_청크를_저장하고_검색한다() -> None:
     assert len(results) == 2
     assert results[0].document_id == "doc-1"
     assert results[0].filename == "memo.txt"
+    assert results[0].security_level == "internal"
     assert results[0].chunk_index == 0
     assert results[0].chunk_text == "alpha budget"
 
@@ -50,6 +51,7 @@ def test_Qdrant_저장소가_청크를_저장하고_검색한다() -> None:
 
     assert [chunk.chunk_text for chunk in listed] == ["alpha budget", "beta note"]
     assert [chunk.score for chunk in listed] == [0.0, 0.0]
+    assert [chunk.security_level for chunk in listed] == ["internal", "internal"]
 
 
 def test_Qdrant_저장소가_문서_단위로_청크를_삭제한다() -> None:

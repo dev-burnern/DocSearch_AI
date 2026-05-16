@@ -5,6 +5,7 @@ from fastapi import (
     APIRouter,
     Depends,
     File,
+    Form,
     HTTPException,
     Query,
     Request,
@@ -22,6 +23,7 @@ from backend.app.documents.models import (
     DocumentUploadResponse,
 )
 from backend.app.documents.postgres_store import PostgresDocumentMetadataStore
+from backend.app.documents.security import validate_document_security_level
 from backend.app.documents.service import DocumentNotFoundError, DocumentService
 from backend.app.documents.store import DocumentMetadataStore, InMemoryDocumentMetadataStore
 from backend.app.indexing.chunker import CharacterChunker
@@ -162,16 +164,19 @@ def get_document_service(
 @router.post("", response_model=DocumentUploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_document(
     file: UploadFile = File(...),
+    security_level: str = Form(default="internal"),
     workspace_context: WorkspaceContext = Depends(require_workspace_context),
     document_service: DocumentService = Depends(get_document_service),
 ) -> DocumentUploadResponse:
     try:
         data = await file.read()
+        validated_security_level = validate_document_security_level(security_level)
         return document_service.upload_document(
             workspace_context=workspace_context,
             filename=file.filename or "document",
             content_type=file.content_type or "application/octet-stream",
             data=data,
+            security_level=validated_security_level,
         )
     except DocumentProcessingError as exc:
         raise _document_processing_error(exc) from exc

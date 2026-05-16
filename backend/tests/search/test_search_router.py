@@ -12,12 +12,14 @@ class FakeRetriever:
         self.query_text: str | None = None
         self.workspace_id: str | None = None
         self.document_ids: list[str] | None = None
+        self.security_levels: list[str] | None = None
         self.limit: int | None = None
 
     def retrieve(self, *, query_text, filters, limit):
         self.query_text = query_text
         self.workspace_id = filters.workspace_id
         self.document_ids = filters.document_ids
+        self.security_levels = filters.security_levels
         self.limit = limit
         return [
             RetrievedChunk(
@@ -65,6 +67,7 @@ def test_검색_API가_워크스페이스_필터로_청크를_반환한다(
         json={
             "query": "권한 정책",
             "document_ids": ["doc-1"],
+            "security_levels": ["internal"],
             "limit": 5,
         },
     )
@@ -73,6 +76,7 @@ def test_검색_API가_워크스페이스_필터로_청크를_반환한다(
     assert fake_retriever.query_text == "권한 정책"
     assert fake_retriever.workspace_id == "workspace-alpha"
     assert fake_retriever.document_ids == ["doc-1"]
+    assert fake_retriever.security_levels == ["internal"]
     assert fake_retriever.limit == 5
     assert response.json() == {
         "query": "권한 정책",
@@ -82,6 +86,7 @@ def test_검색_API가_워크스페이스_필터로_청크를_반환한다(
                 "document_id": "doc-1",
                 "filename": "policy.md",
                 "parser": "markdown",
+                "security_level": "internal",
                 "chunk_index": 2,
                 "score": 0.87,
                 "snippet": "권한 정책 문서 일부",
@@ -100,7 +105,7 @@ def test_검색_API는_API_Key가_없으면_거부한다() -> None:
     )
 
     assert response.status_code == 401
-    assert response.json()["detail"]["code"] == "AUTH_MISSING_API_KEY"
+    assert response.json()["detail"]["code"] == "AUTH_MISSING_CREDENTIALS"
 
 
 def test_search_api_returns_502_when_embedding_backend_fails(

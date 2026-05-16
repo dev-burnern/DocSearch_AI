@@ -16,6 +16,7 @@ class RetrievedChunk:
     chunk_index: int
     chunk_text: str
     score: float
+    security_level: str = "internal"
 
 
 class QdrantVectorStore:
@@ -52,6 +53,8 @@ class QdrantVectorStore:
                         "workspace_id": job.workspace_id,
                         "workspace_name": job.workspace_name,
                         "document_id": job.document_id,
+                        "uploaded_by_employee_id": job.uploaded_by_employee_id,
+                        "security_level": job.security_level,
                         "filename": job.filename,
                         "parser": parser_name,
                         "chunk_index": index,
@@ -89,6 +92,7 @@ class QdrantVectorStore:
                 document_id=str(point.payload["document_id"]),
                 filename=str(point.payload["filename"]),
                 parser=str(point.payload["parser"]),
+                security_level=str(point.payload.get("security_level", "internal")),
                 chunk_index=int(point.payload["chunk_index"]),
                 chunk_text=str(point.payload["chunk_text"]),
                 score=float(point.score),
@@ -116,6 +120,7 @@ class QdrantVectorStore:
                 document_id=str(record.payload["document_id"]),
                 filename=str(record.payload["filename"]),
                 parser=str(record.payload["parser"]),
+                security_level=str(record.payload.get("security_level", "internal")),
                 chunk_index=int(record.payload["chunk_index"]),
                 chunk_text=str(record.payload["chunk_text"]),
                 score=0.0,

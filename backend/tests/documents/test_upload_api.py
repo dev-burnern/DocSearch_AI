@@ -197,6 +197,42 @@ def test_upload_normalizes_filename_and_content_type(
     assert storage.saved[0]["content_type"] == "text/plain"
 
 
+def test_upload_with_login_token_records_uploader_and_security_level(
+    client: TestClient,
+    document_store: InMemoryDocumentMetadataStore,
+) -> None:
+    token = _login_token(client, employee_id="1002")
+
+    response = client.post(
+        "/v1/documents",
+        headers={"Authorization": f"Bearer {token}"},
+        data={"security_level": "confidential"},
+        files={"file": ("memo.txt", b"hello docsearch", "text/plain")},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["uploaded_by_employee_id"] == "1002"
+    assert response.json()["security_level"] == "confidential"
+
+    records = document_store.list_documents(workspace_id="local-workspace")
+    assert records[0].uploaded_by_employee_id == "1002"
+    assert records[0].security_level == "confidential"
+
+
+def test_upload_rejects_unknown_security_level(client: TestClient) -> None:
+    token = _login_token(client, employee_id="1002")
+
+    response = client.post(
+        "/v1/documents",
+        headers={"Authorization": f"Bearer {token}"},
+        data={"security_level": "top_secret"},
+        files={"file": ("memo.txt", b"hello docsearch", "text/plain")},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "DOCUMENT_INVALID_SECURITY_LEVEL"
+
+
 def test_upload_rejects_empty_documents(client: TestClient) -> None:
     response = client.post(
         "/v1/documents",
@@ -281,3 +317,17 @@ class FailedJobQueue:
             chunk_count=0,
             failure_reason="parser failed",
         )
+
+
+def _login_token(
+    client: TestClient,
+    *,
+    employee_id: str,
+    password: str = "password",
+) -> str:
+    response = client.post(
+        "/v1/auth/login",
+        json={"employee_id": employee_id, "password": password},
+    )
+    assert response.status_code == 200
+    return response.json()["access_token"]

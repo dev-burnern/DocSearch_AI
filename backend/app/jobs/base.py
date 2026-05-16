@@ -14,6 +14,8 @@ class IndexDocumentJob:
     filename: str
     content_type: str
     storage_key: str
+    uploaded_by_employee_id: str | None = None
+    security_level: str = "internal"
     attempt: int = 1
     max_attempts: int = 3
 

@@ -43,6 +43,7 @@ class DocumentService:
         filename: str,
         content_type: str,
         data: bytes,
+        security_level: str = "internal",
     ) -> DocumentUploadResponse:
         document_id = uuid4().hex
         indexing_job_id = uuid4().hex
@@ -66,6 +67,8 @@ class DocumentService:
                 filename=filename,
                 content_type=content_type,
                 storage_key=storage_key,
+                uploaded_by_employee_id=workspace_context.employee_id,
+                security_level=security_level,
             ),
         )
 
@@ -73,6 +76,8 @@ class DocumentService:
             document_id=document_id,
             workspace_id=workspace_context.workspace_id,
             workspace_name=workspace_context.workspace_name,
+            uploaded_by_employee_id=workspace_context.employee_id,
+            security_level=security_level,
             filename=filename,
             parser=parsed.parser_name,
             character_count=parsed.character_count,
@@ -151,6 +156,8 @@ class DocumentService:
                 filename=record.filename,
                 content_type=_guess_content_type(record.filename),
                 storage_key=record.storage_key,
+                uploaded_by_employee_id=record.uploaded_by_employee_id,
+                security_level=record.security_level,
             ),
         )
         updated = record.model_copy(

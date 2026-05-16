@@ -23,6 +23,7 @@ class FakeChatService:
                     citation_id=1,
                     document_id="doc-1",
                     filename="policy.md",
+                    security_level="internal",
                     chunk_index=0,
                     score=0.88,
                     snippet="문서 일부",
@@ -70,6 +71,7 @@ def test_채팅_API가_워크스페이스_인증_후_답변을_반환한다(
         json={
             "question": "정책 문서 요약해줘",
             "document_ids": ["doc-1"],
+            "security_levels": ["internal"],
         },
     )
 
@@ -78,6 +80,7 @@ def test_채팅_API가_워크스페이스_인증_후_답변을_반환한다(
     assert fake_service.chat_request is not None
     assert fake_service.chat_request.question == "정책 문서 요약해줘"
     assert fake_service.chat_request.document_ids == ["doc-1"]
+    assert fake_service.chat_request.security_levels == ["internal"]
     assert response.json() == {
         "answer": "권한이 확인된 문서 기준 답변입니다. [1]",
         "model": "google/gemma-4-E4B-it",
@@ -86,6 +89,7 @@ def test_채팅_API가_워크스페이스_인증_후_답변을_반환한다(
                 "citation_id": 1,
                 "document_id": "doc-1",
                 "filename": "policy.md",
+                "security_level": "internal",
                 "chunk_index": 0,
                 "score": 0.88,
                 "snippet": "문서 일부",
@@ -110,7 +114,7 @@ def test_채팅_API는_API_Key가_없으면_거부한다() -> None:
     )
 
     assert response.status_code == 401
-    assert response.json()["detail"]["code"] == "AUTH_MISSING_API_KEY"
+    assert response.json()["detail"]["code"] == "AUTH_MISSING_CREDENTIALS"
 
 
 def test_chat_api_returns_502_when_embedding_backend_fails(
