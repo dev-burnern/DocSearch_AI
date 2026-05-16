@@ -67,6 +67,16 @@ class Settings(BaseModel):
     indexing_queue_backend: str = Field(
         default_factory=lambda: os.getenv("INDEXING_QUEUE_BACKEND", "inprocess"),
     )
+    indexing_queue_redis_key: str = Field(
+        default_factory=lambda: os.getenv(
+            "INDEXING_QUEUE_REDIS_KEY",
+            "docsearch:indexing:queue",
+        ),
+    )
+    indexing_queue_max_attempts: int = Field(
+        default_factory=lambda: int(os.getenv("INDEXING_QUEUE_MAX_ATTEMPTS", "3")),
+        gt=0,
+    )
     chunk_max_characters: int = Field(
         default_factory=lambda: int(os.getenv("CHUNK_MAX_CHARACTERS", "1000")),
     )

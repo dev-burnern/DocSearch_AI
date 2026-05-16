@@ -29,7 +29,7 @@ from backend.app.indexing.embedder import DeterministicEmbedder
 from backend.app.indexing.pipeline import IndexingPipeline
 from backend.app.jobs.base import JobQueue
 from backend.app.jobs.inprocess import InProcessJobQueue
-from backend.app.jobs.redis_queue import RedisJobQueue
+from backend.app.jobs.redis_queue import create_redis_job_queue
 from backend.app.parsers.base import ParserRegistry
 from backend.app.retrieval.qdrant_store import QdrantVectorStore
 from backend.app.storage.minio import StorageService, create_minio_storage_service
@@ -123,7 +123,10 @@ def get_job_queue(
     settings: Settings = Depends(get_runtime_settings),
 ) -> JobQueue:
     if settings.indexing_queue_backend == "redis":
-        return RedisJobQueue()
+        return create_redis_job_queue(
+            settings,
+            operation_event_store=request.app.state.operation_event_store,
+        )
 
     return InProcessJobQueue(
         processor=pipeline.run,

@@ -29,6 +29,9 @@ services:
       AUDIT_LOG_BACKEND: postgres
       DOCUMENT_METADATA_BACKEND: postgres
       REDIS_URL: redis://redis:6379/0
+      INDEXING_QUEUE_BACKEND: redis
+      INDEXING_QUEUE_REDIS_KEY: docsearch:indexing:queue
+      INDEXING_QUEUE_MAX_ATTEMPTS: "3"
       DEPENDENCY_HEALTH_CHECKS_ENABLED: "true"
       DEPENDENCY_HEALTH_TIMEOUT_SECONDS: "2.0"
       RATE_LIMIT_ENABLED: "false"
@@ -62,9 +65,31 @@ services:
       context: ../..
       dockerfile: backend/Dockerfile
     command: python -m backend.app.worker
+    environment:
+      APP_NAME: DocSearch AI
+      APP_ENV: development
+      DATABASE_URL: postgresql://docsearch:docsearch@postgres:5432/docsearch
+      DOCUMENT_METADATA_BACKEND: postgres
+      REDIS_URL: redis://redis:6379/0
+      INDEXING_QUEUE_BACKEND: redis
+      INDEXING_QUEUE_REDIS_KEY: docsearch:indexing:queue
+      INDEXING_QUEUE_MAX_ATTEMPTS: "3"
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: docsearch_chunks
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+      MINIO_BUCKET: documents
+      MINIO_SECURE: "false"
+      CHUNK_MAX_CHARACTERS: "1000"
+      CHUNK_OVERLAP_CHARACTERS: "100"
+      EMBEDDING_VECTOR_SIZE: "8"
     depends_on:
       - api
       - redis
+      - postgres
+      - qdrant
+      - minio
 
   postgres:
     image: postgres:16-alpine
