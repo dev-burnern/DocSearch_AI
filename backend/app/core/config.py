@@ -110,6 +110,14 @@ class Settings(BaseModel):
     llm_temperature: float = Field(
         default_factory=lambda: float(os.getenv("LLM_TEMPERATURE", "0.2")),
     )
+    llm_max_retries: int = Field(
+        default_factory=lambda: int(os.getenv("LLM_MAX_RETRIES", "2")),
+        ge=0,
+    )
+    llm_retry_backoff_seconds: float = Field(
+        default_factory=lambda: float(os.getenv("LLM_RETRY_BACKOFF_SECONDS", "0.5")),
+        ge=0,
+    )
     chat_retrieval_limit: int = Field(
         default_factory=lambda: int(os.getenv("CHAT_RETRIEVAL_LIMIT", "5")),
     )

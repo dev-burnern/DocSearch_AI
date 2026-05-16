@@ -20,6 +20,8 @@ class LLMProfile(BaseModel):
     timeout_seconds: float = Field(gt=0)
     max_tokens: int = Field(gt=0)
     temperature: float = Field(ge=0)
+    max_retries: int = Field(ge=0)
+    retry_backoff_seconds: float = Field(ge=0)
 
     @field_validator("base_url")
     @classmethod
@@ -44,4 +46,6 @@ def get_default_llm_profile(settings: "Settings | None" = None) -> LLMProfile:
         timeout_seconds=settings.llm_timeout_seconds,
         max_tokens=settings.llm_max_tokens,
         temperature=settings.llm_temperature,
+        max_retries=settings.llm_max_retries,
+        retry_backoff_seconds=settings.llm_retry_backoff_seconds,
     )
