@@ -42,10 +42,17 @@ export interface OperationsSettingsSummary {
     audit_log: string;
     document_metadata: string;
     indexing_queue: string;
+    embedding: string;
     reranker: string;
   };
   models: {
     llm: string;
+    llm_timeout_seconds: number;
+    llm_max_tokens: number;
+    llm_temperature: number;
+    llm_max_retries: number;
+    llm_retry_backoff_seconds: number;
+    embedding: string;
     reranker: string;
     embedding_vector_size: number;
   };

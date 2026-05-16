@@ -152,8 +152,10 @@ function OperationsSummary({ response }: { response: OperationsStatusResponse })
           <Tag>audit {response.settings.backends.audit_log}</Tag>
           <Tag>metadata {response.settings.backends.document_metadata}</Tag>
           <Tag>queue {response.settings.backends.indexing_queue}</Tag>
+          <Tag>embedding backend {response.settings.backends.embedding}</Tag>
           <Tag>reranker {response.settings.backends.reranker}</Tag>
           <Tag>{response.settings.models.llm}</Tag>
+          <Tag>{response.settings.models.embedding}</Tag>
           <Tag>{response.settings.models.reranker}</Tag>
           <Tag>vector {response.settings.models.embedding_vector_size}</Tag>
         </Space>

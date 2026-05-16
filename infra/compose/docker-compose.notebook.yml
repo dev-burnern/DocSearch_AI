@@ -1,0 +1,37 @@
+services:
+  api:
+    environment:
+      LLM_BASE_URL: http://llm:8000/v1
+      LLM_MODEL: local-dev-llm
+      EMBEDDING_BACKEND: bge
+      EMBEDDING_BASE_URL: http://llm:8000/v1
+      EMBEDDING_MODEL: local-dev-embedding
+      EMBEDDING_VECTOR_SIZE: "8"
+      EMBEDDING_TIMEOUT_SECONDS: "10.0"
+
+  worker:
+    environment:
+      EMBEDDING_BACKEND: bge
+      EMBEDDING_BASE_URL: http://llm:8000/v1
+      EMBEDDING_MODEL: local-dev-embedding
+      EMBEDDING_VECTOR_SIZE: "8"
+      EMBEDDING_TIMEOUT_SECONDS: "10.0"
+    depends_on:
+      - llm
+
+  llm:
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    image: docsearch-ai-local-stub
+    command:
+      - uvicorn
+      - backend.app.dev.ai_stub:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    environment:
+      AI_STUB_LLM_MODEL: local-dev-llm
+      AI_STUB_EMBEDDING_MODEL: local-dev-embedding
+      AI_STUB_EMBEDDING_VECTOR_SIZE: "8"

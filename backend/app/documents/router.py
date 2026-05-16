@@ -25,7 +25,12 @@ from backend.app.documents.postgres_store import PostgresDocumentMetadataStore
 from backend.app.documents.service import DocumentNotFoundError, DocumentService
 from backend.app.documents.store import DocumentMetadataStore, InMemoryDocumentMetadataStore
 from backend.app.indexing.chunker import CharacterChunker
-from backend.app.indexing.embedder import DeterministicEmbedder
+from backend.app.indexing.embedder import (
+    BGEEmbeddingClient,
+    DeterministicEmbedder,
+    Embedder,
+)
+from backend.app.indexing.embedding_profiles import get_default_embedding_profile
 from backend.app.indexing.pipeline import IndexingPipeline
 from backend.app.jobs.base import JobQueue
 from backend.app.jobs.inprocess import InProcessJobQueue
@@ -81,7 +86,9 @@ def get_chunker(
 
 def get_embedder(
     settings: Settings = Depends(get_runtime_settings),
-) -> DeterministicEmbedder:
+) -> Embedder:
+    if settings.embedding_backend == "bge":
+        return BGEEmbeddingClient(profile=get_default_embedding_profile(settings))
     return DeterministicEmbedder(vector_size=settings.embedding_vector_size)
 
 
@@ -105,7 +112,7 @@ def get_indexing_pipeline(
     storage_service: StorageService = Depends(get_storage_service),
     parser_registry: ParserRegistry = Depends(get_parser_registry),
     chunker: CharacterChunker = Depends(get_chunker),
-    embedder: DeterministicEmbedder = Depends(get_embedder),
+    embedder: Embedder = Depends(get_embedder),
     vector_store: QdrantVectorStore = Depends(get_qdrant_store),
 ) -> IndexingPipeline:
     return IndexingPipeline(

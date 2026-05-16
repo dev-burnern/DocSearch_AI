@@ -70,6 +70,7 @@ def test_관리자_운영상태_API가_현재_운영_요약을_반환한다(
         "audit_log": "inmemory",
         "document_metadata": "inmemory",
         "indexing_queue": "inprocess",
+        "embedding": "deterministic",
         "reranker": "score",
     }
     assert body["settings"]["models"] == {
@@ -79,6 +80,7 @@ def test_관리자_운영상태_API가_현재_운영_요약을_반환한다(
         "llm_temperature": 0.2,
         "llm_max_retries": 2,
         "llm_retry_backoff_seconds": 0.5,
+        "embedding": "BAAI/bge-m3",
         "reranker": "BAAI/bge-reranker-v2-m3",
         "embedding_vector_size": 8,
     }

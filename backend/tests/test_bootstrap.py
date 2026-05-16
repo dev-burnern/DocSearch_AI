@@ -33,6 +33,11 @@ def test_settings_load_default_values():
     assert settings.chat_min_relevance_score == 0.2
     assert settings.llm_max_retries == 2
     assert settings.llm_retry_backoff_seconds == 0.5
+    assert settings.embedding_backend == "deterministic"
+    assert settings.embedding_base_url == "http://embedding:8002/v1"
+    assert settings.embedding_model == "BAAI/bge-m3"
+    assert settings.embedding_api_key is None
+    assert settings.embedding_timeout_seconds == 10.0
 
 
 def test_settings_enable_dependency_health_checks_by_default_in_production(
@@ -121,6 +126,26 @@ def test_settings_allow_llm_retry_policy_overrides(
 
     assert settings.llm_max_retries == 4
     assert settings.llm_retry_backoff_seconds == 0.25
+
+
+def test_settings_allow_embedding_backend_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("EMBEDDING_BACKEND", "bge")
+    monkeypatch.setenv("EMBEDDING_BASE_URL", "http://localhost:8002/v1/")
+    monkeypatch.setenv("EMBEDDING_MODEL", "custom/embedding")
+    monkeypatch.setenv("EMBEDDING_API_KEY", "embedding-secret")
+    monkeypatch.setenv("EMBEDDING_TIMEOUT_SECONDS", "2.5")
+    monkeypatch.setenv("EMBEDDING_VECTOR_SIZE", "1024")
+
+    settings = get_settings()
+
+    assert settings.embedding_backend == "bge"
+    assert settings.embedding_base_url == "http://localhost:8002/v1/"
+    assert settings.embedding_model == "custom/embedding"
+    assert settings.embedding_api_key == "embedding-secret"
+    assert settings.embedding_timeout_seconds == 2.5
+    assert settings.embedding_vector_size == 1024
 
 
 def test_health_route_returns_expected_contract():

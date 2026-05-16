@@ -5,6 +5,7 @@
 ## 운영 전제
 
 - DocSearch AI 백엔드는 OpenAI compatible `POST /chat/completions` 계약만 바라봅니다.
+- embedding 백엔드는 기본 deterministic 모드와 OpenAI compatible `POST /embeddings` 모드를 지원합니다.
 - 온프레미스 기준은 모델 가중치와 추론 서버를 사내 또는 로컬 GPU 환경에서 직접 실행하는 구성입니다.
 - `LLM_API_KEY`는 보호된 compatible endpoint를 붙일 때만 사용합니다. 기본 로컬 vLLM 구성에서는 비워둡니다.
 - `LLM_MODEL` 값은 실제 vLLM 서버에 올라간 모델 ID와 반드시 같아야 합니다.
@@ -22,6 +23,11 @@
 | `LLM_TEMPERATURE` | `0.2` | RAG 답변은 낮은 값을 기본으로 사용 |
 | `LLM_MAX_RETRIES` | `2` | 네트워크 오류, HTTP 429, HTTP 5xx에만 재시도 |
 | `LLM_RETRY_BACKOFF_SECONDS` | `0.5` | 짧은 순간 장애 흡수를 위한 고정 backoff |
+| `EMBEDDING_BACKEND` | `deterministic` | 운영 BGE-M3 서버를 붙이면 `bge`로 변경 |
+| `EMBEDDING_BASE_URL` | `http://embedding:8002/v1` | OpenAI compatible embedding base URL |
+| `EMBEDDING_MODEL` | `BAAI/bge-m3` | embedding 서버에 로드한 모델 ID |
+| `EMBEDDING_VECTOR_SIZE` | `8` | deterministic 기본값. BGE-M3는 보통 `1024`로 맞춤 |
+| `EMBEDDING_TIMEOUT_SECONDS` | `10.0` | embedding 요청 timeout |
 
 ## 장애 처리 기준
 
@@ -30,6 +36,17 @@
 - HTTP 400 계열 검증 오류는 요청 또는 모델 계약 문제로 보고 재시도하지 않습니다.
 - 재시도 후에도 실패하면 채팅 API는 `CHAT_LLM_UNAVAILABLE` 계열 오류로 변환합니다.
 - 운영 화면의 `/v1/admin/operations` 응답에서 현재 LLM 모델, timeout, max tokens, temperature, retry 설정을 확인합니다.
+- `EMBEDDING_BACKEND=bge`이면 `/ready`가 embedding 서버의 `/models` endpoint도 점검합니다.
+
+## BGE-M3 embedding 운영 흐름
+
+1. 문서 업로드 또는 재인덱싱이 들어오면 파서가 문서 본문을 추출합니다.
+2. chunker가 본문을 검색 단위 chunk로 나눕니다.
+3. `EMBEDDING_BACKEND=bge`이면 BGE embedding client가 `/embeddings` endpoint에 chunk 목록을 보냅니다.
+4. 응답 embedding 개수와 vector dimension을 검증한 뒤 Qdrant에 저장합니다.
+5. 검색과 채팅 질문도 같은 embedding backend로 vector를 만든 뒤 Qdrant에서 조회합니다.
+
+운영에서는 문서 인덱싱과 검색이 같은 embedding 모델, 같은 vector size, 같은 Qdrant collection을 사용해야 합니다. 모델이나 dimension을 바꾸면 기존 collection을 비우거나 새 collection 이름을 사용합니다.
 
 ## 로컬 GPU별 모델 선택 시작점
 

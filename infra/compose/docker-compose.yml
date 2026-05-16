@@ -51,6 +51,11 @@ services:
       CHAT_RETRIEVAL_LIMIT: "5"
       CHAT_RERANK_TOP_K: "5"
       CHAT_MIN_RELEVANCE_SCORE: "0.2"
+      EMBEDDING_BACKEND: deterministic
+      EMBEDDING_BASE_URL: http://embedding:8002/v1
+      EMBEDDING_MODEL: BAAI/bge-m3
+      EMBEDDING_TIMEOUT_SECONDS: "10.0"
+      EMBEDDING_VECTOR_SIZE: "8"
       RERANKER_BACKEND: score
       RERANKER_BASE_URL: http://reranker:8001/v1
       RERANKER_MODEL: BAAI/bge-reranker-v2-m3
@@ -88,6 +93,10 @@ services:
       CHUNK_MAX_CHARACTERS: "1000"
       CHUNK_OVERLAP_CHARACTERS: "100"
       EMBEDDING_VECTOR_SIZE: "8"
+      EMBEDDING_BACKEND: deterministic
+      EMBEDDING_BASE_URL: http://embedding:8002/v1
+      EMBEDDING_MODEL: BAAI/bge-m3
+      EMBEDDING_TIMEOUT_SECONDS: "10.0"
     depends_on:
       - api
       - redis
