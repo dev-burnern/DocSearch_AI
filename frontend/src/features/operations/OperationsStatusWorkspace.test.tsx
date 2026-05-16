@@ -28,6 +28,8 @@ describe("OperationsStatusWorkspace", () => {
     expect(screen.getByText("rate limit 120/60s")).toBeInTheDocument();
     expect(screen.getByText("rate backend redis")).toBeInTheDocument();
     expect(screen.getByText("fail-open on")).toBeInTheDocument();
+    expect(screen.getByText("retrieval hybrid")).toBeInTheDocument();
+    expect(screen.getByText("hybrid 0.7/0.3")).toBeInTheDocument();
     expect(screen.getByText("qdrant")).toBeInTheDocument();
     expect(screen.getByText("Qdrant 연결이 정상입니다.")).toBeInTheDocument();
     expect(screen.getByText("기록된 운영 이벤트가 없습니다.")).toBeInTheDocument();
@@ -137,6 +139,10 @@ function buildBaseOperationsResponse(): OperationsStatusResponse {
       debug: false,
       dependency_health_checks_enabled: true,
       dependency_health_timeout_seconds: 2,
+      retrieval_mode: "hybrid",
+      hybrid_dense_weight: 0.7,
+      hybrid_lexical_weight: 0.3,
+      hybrid_candidate_limit: 50,
       rate_limit: {
         enabled: true,
         requests: 120,

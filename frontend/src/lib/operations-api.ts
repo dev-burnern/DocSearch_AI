@@ -31,6 +31,10 @@ export interface OperationsSettingsSummary {
   debug: boolean;
   dependency_health_checks_enabled: boolean;
   dependency_health_timeout_seconds: number;
+  retrieval_mode: string;
+  hybrid_dense_weight: number;
+  hybrid_lexical_weight: number;
+  hybrid_candidate_limit: number;
   rate_limit: {
     enabled: boolean;
     backend: string;

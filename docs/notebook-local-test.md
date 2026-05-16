@@ -20,6 +20,7 @@ docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compo
 
 - 문서 업로드, 파싱, 청킹, Qdrant 저장 흐름
 - OpenAI compatible `/embeddings` 호출 경계
+- hybrid search score blend 경계
 - OpenAI compatible `/chat/completions` 호출 경계
 - 검색, 채팅, citation, 감사 로그 화면 흐름
 - 관리자 운영 상태에서 LLM과 embedding dependency check 확인

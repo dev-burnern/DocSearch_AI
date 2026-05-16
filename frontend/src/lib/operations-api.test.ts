@@ -27,6 +27,10 @@ describe("createOperationsApiClient", () => {
             debug: false,
             dependency_health_checks_enabled: true,
             dependency_health_timeout_seconds: 2,
+            retrieval_mode: "hybrid",
+            hybrid_dense_weight: 0.7,
+            hybrid_lexical_weight: 0.3,
+            hybrid_candidate_limit: 50,
             rate_limit: {
               enabled: true,
               requests: 120,

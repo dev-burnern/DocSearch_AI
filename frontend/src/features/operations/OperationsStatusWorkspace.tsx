@@ -145,6 +145,11 @@ function OperationsSummary({ response }: { response: OperationsStatusResponse })
         <Tag color={response.settings.rate_limit.fail_open ? "blue" : "orange"}>
           fail-open {response.settings.rate_limit.fail_open ? "on" : "off"}
         </Tag>
+        <Tag>retrieval {response.settings.retrieval_mode}</Tag>
+        <Tag>
+          hybrid {response.settings.hybrid_dense_weight}/
+          {response.settings.hybrid_lexical_weight}
+        </Tag>
       </Space>
 
       <Card size="small" title="런타임 설정" variant="borderless">

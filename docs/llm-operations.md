@@ -28,6 +28,10 @@
 | `EMBEDDING_MODEL` | `BAAI/bge-m3` | embedding 서버에 로드한 모델 ID |
 | `EMBEDDING_VECTOR_SIZE` | `8` | deterministic 기본값. BGE-M3는 보통 `1024`로 맞춤 |
 | `EMBEDDING_TIMEOUT_SECONDS` | `10.0` | embedding 요청 timeout |
+| `RETRIEVAL_MODE` | `dense` | `hybrid`로 바꾸면 dense score와 lexical score를 함께 반영 |
+| `HYBRID_DENSE_WEIGHT` | `0.7` | hybrid search에서 vector similarity 반영 비율 |
+| `HYBRID_LEXICAL_WEIGHT` | `0.3` | hybrid search에서 query term overlap 반영 비율 |
+| `HYBRID_CANDIDATE_LIMIT` | `50` | hybrid score를 계산할 후보 chunk 수 |
 
 ## 장애 처리 기준
 
@@ -47,6 +51,12 @@
 5. 검색과 채팅 질문도 같은 embedding backend로 vector를 만든 뒤 Qdrant에서 조회합니다.
 
 운영에서는 문서 인덱싱과 검색이 같은 embedding 모델, 같은 vector size, 같은 Qdrant collection을 사용해야 합니다. 모델이나 dimension을 바꾸면 기존 collection을 비우거나 새 collection 이름을 사용합니다.
+
+## Hybrid search 운영 흐름
+
+`RETRIEVAL_MODE=dense`는 embedding vector score만 사용합니다. `RETRIEVAL_MODE=hybrid`는 Qdrant dense 후보와 같은 workspace/document filter 안의 lexical 후보를 함께 모은 뒤, dense score와 query term overlap score를 가중 합산합니다.
+
+기본 가중치는 dense 0.7, lexical 0.3입니다. 문서명이 아니라 chunk 본문 기준으로 lexical score를 계산하므로, 정확한 키워드가 들어간 chunk를 dense 후보보다 위로 보정하는 용도입니다. 대규모 운영에서는 `HYBRID_CANDIDATE_LIMIT`을 너무 크게 잡으면 Qdrant scroll 비용이 커질 수 있으므로 latency 측정 후 조정합니다.
 
 ## 로컬 GPU별 모델 선택 시작점
 

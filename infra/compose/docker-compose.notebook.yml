@@ -8,6 +8,7 @@ services:
       EMBEDDING_MODEL: local-dev-embedding
       EMBEDDING_VECTOR_SIZE: "8"
       EMBEDDING_TIMEOUT_SECONDS: "10.0"
+      RETRIEVAL_MODE: hybrid
 
   worker:
     environment:
