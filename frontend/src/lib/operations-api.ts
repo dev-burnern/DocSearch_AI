@@ -62,6 +62,15 @@ export interface OperationsSettingsSummary {
   };
 }
 
+export interface IndexingQueueSummary {
+  backend: string;
+  status: OperationsStatus;
+  queue_key: string | null;
+  pending_jobs: number | null;
+  max_attempts: number;
+  message: string;
+}
+
 export interface OperationsStatusResponse {
   status: OperationsStatus;
   service: string;
@@ -69,6 +78,7 @@ export interface OperationsStatusResponse {
   checks: OperationsCheck[];
   events: OperationEvent[];
   settings: OperationsSettingsSummary;
+  indexing_queue: IndexingQueueSummary;
 }
 
 export interface OperationsClient {

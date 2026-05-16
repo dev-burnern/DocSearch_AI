@@ -38,6 +38,17 @@ def test_redis_job_queue_pops_serialized_job() -> None:
     ]
 
 
+def test_redis_job_queue_reports_pending_count() -> None:
+    redis_client = FakeRedisClient(pending_count=4)
+    queue = RedisJobQueue(
+        redis_client=redis_client,
+        queue_key="docsearch:indexing:test",
+    )
+
+    assert queue.pending_count() == 4
+    assert redis_client.length_calls == ["docsearch:indexing:test"]
+
+
 def test_redis_job_queue_records_enqueue_failure_event() -> None:
     event_store = InMemoryOperationEventStore()
     queue = RedisJobQueue(
@@ -75,10 +86,17 @@ def _job() -> IndexDocumentJob:
 
 
 class FakeRedisClient:
-    def __init__(self, *, payload: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        payload: str | None = None,
+        pending_count: int = 0,
+    ) -> None:
         self.payload = payload or ""
+        self.pending_count = pending_count
         self.pushed: list[tuple[str, str]] = []
         self.pop_calls: list[dict[str, object]] = []
+        self.length_calls: list[str] = []
 
     def rpush(self, queue_key: str, payload: str) -> None:
         self.payload = payload
@@ -89,6 +107,10 @@ class FakeRedisClient:
         if not self.payload:
             return None
         return queue_key, self.payload
+
+    def llen(self, queue_key: str) -> int:
+        self.length_calls.append(queue_key)
+        return self.pending_count
 
 
 class FailingRedisClient:

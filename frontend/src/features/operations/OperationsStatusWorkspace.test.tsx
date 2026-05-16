@@ -30,12 +30,19 @@ describe("OperationsStatusWorkspace", () => {
     expect(screen.getByText("fail-open on")).toBeInTheDocument();
     expect(screen.getByText("retrieval hybrid")).toBeInTheDocument();
     expect(screen.getByText("hybrid 0.7/0.3")).toBeInTheDocument();
+    expect(screen.getByText("indexing queue ready")).toBeInTheDocument();
+    expect(screen.getByText("pending 3")).toBeInTheDocument();
+    expect(screen.getByText("max attempts 5")).toBeInTheDocument();
+    expect(screen.getByText("docsearch:indexing:queue")).toBeInTheDocument();
     expect(screen.getByText("qdrant")).toBeInTheDocument();
     expect(screen.getByText("Qdrant 연결이 정상입니다.")).toBeInTheDocument();
     expect(screen.getByText("기록된 운영 이벤트가 없습니다.")).toBeInTheDocument();
     expect(screen.getByText("google/gemma-4-E4B-it")).toBeInTheDocument();
     expect(screen.getByText("embedding backend deterministic")).toBeInTheDocument();
     expect(screen.getByText("BAAI/bge-m3")).toBeInTheDocument();
+    expect(
+      screen.getByText("Redis 인덱싱 큐 대기건수 조회에 성공했습니다."),
+    ).toBeInTheDocument();
   });
 
   it("운영 이벤트를 표시한다", async () => {
@@ -134,6 +141,14 @@ function buildBaseOperationsResponse(): OperationsStatusResponse {
       },
     ],
     events: [],
+    indexing_queue: {
+      backend: "redis",
+      status: "ready" as const,
+      queue_key: "docsearch:indexing:queue",
+      pending_jobs: 3,
+      max_attempts: 5,
+      message: "Redis 인덱싱 큐 대기건수 조회에 성공했습니다.",
+    },
     settings: {
       environment: "development",
       debug: false,
