@@ -1,7 +1,16 @@
 from functools import lru_cache
 from typing import Callable
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 
 from backend.app.auth.dependencies import require_workspace_context
 from backend.app.auth.models import WorkspaceContext
@@ -109,13 +118,17 @@ def get_indexing_pipeline(
 
 
 def get_job_queue(
+    request: Request,
     pipeline: IndexingPipeline = Depends(get_indexing_pipeline),
     settings: Settings = Depends(get_runtime_settings),
 ) -> JobQueue:
     if settings.indexing_queue_backend == "redis":
         return RedisJobQueue()
 
-    return InProcessJobQueue(processor=pipeline.run)
+    return InProcessJobQueue(
+        processor=pipeline.run,
+        operation_event_store=request.app.state.operation_event_store,
+    )
 
 
 def get_document_service(

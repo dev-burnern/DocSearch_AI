@@ -383,6 +383,9 @@ function UploadResult({ result }: { result: DocumentUploadResponse }) {
         <Text strong>{result.filename}</Text>
         <Text copyable>{result.document_id}</Text>
         <Text type="secondary">{result.workspace_name}</Text>
+        {result.indexing_error ? (
+          <Alert type="error" message={result.indexing_error} showIcon />
+        ) : null}
         <Paragraph className="answer-text">{result.text_preview}</Paragraph>
       </Space>
     </section>
@@ -453,6 +456,9 @@ function DocumentListItem({
         </Space>
         <Text copyable>{record.document_id}</Text>
         <Text type="secondary">{record.workspace_name}</Text>
+        {record.indexing_error ? (
+          <Alert type="error" message={record.indexing_error} showIcon />
+        ) : null}
         <Paragraph className="answer-text">{record.text_preview}</Paragraph>
         <Space wrap>
           <Button

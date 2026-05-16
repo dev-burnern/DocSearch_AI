@@ -14,6 +14,7 @@ class DocumentMetadata(BaseModel):
     storage_key: str
     indexing_job_id: str
     indexing_status: str
+    indexing_error: str | None = None
     chunk_count: int
 
 

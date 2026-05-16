@@ -35,3 +35,46 @@ def test_인프로세스_큐가_잡을_즉시_처리한다() -> None:
     assert result.job_id == "job-1"
     assert result.status == "completed"
     assert result.chunk_count == 2
+
+
+def test_인프로세스_큐가_인덱싱_실패를_운영_이벤트로_기록한다() -> None:
+    from backend.app.core.operation_events import InMemoryOperationEventStore
+    from backend.app.jobs.base import IndexDocumentJob
+    from backend.app.jobs.inprocess import InProcessJobQueue
+
+    event_store = InMemoryOperationEventStore()
+
+    def process(_job: IndexDocumentJob):
+        raise RuntimeError("parser failed")
+
+    queue = InProcessJobQueue(
+        processor=process,
+        operation_event_store=event_store,
+    )
+    job = IndexDocumentJob(
+        job_id="job-1",
+        workspace_id="workspace-alpha",
+        workspace_name="Workspace Alpha",
+        document_id="doc-1",
+        filename="memo.txt",
+        content_type="text/plain",
+        storage_key="workspace-alpha/doc-1/memo.txt",
+    )
+
+    result = queue.enqueue(job)
+
+    assert result.job_id == "job-1"
+    assert result.status == "failed"
+    assert result.chunk_count == 0
+    assert result.failure_reason == "parser failed"
+    event = event_store.list_events()[0]
+    assert event.event_type == "indexing.failed"
+    assert event.severity == "error"
+    assert event.source == "indexing"
+    assert event.message == "Document indexing failed: parser failed"
+    assert event.details == {
+        "job_id": "job-1",
+        "workspace_id": "workspace-alpha",
+        "document_id": "doc-1",
+        "filename": "memo.txt",
+    }

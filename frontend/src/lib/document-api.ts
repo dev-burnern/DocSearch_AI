@@ -23,6 +23,7 @@ export interface DocumentUploadResponse {
   storage_key: string;
   indexing_job_id: string;
   indexing_status: string;
+  indexing_error?: string | null;
   chunk_count: number;
 }
 
