@@ -47,6 +47,9 @@ class RedisJobQueue:
         _, payload = result
         return self.deserialize(payload)
 
+    def pending_count(self) -> int:
+        return int(self._redis_client.llen(self._queue_key))
+
     @staticmethod
     def serialize(job: IndexDocumentJob) -> str:
         return json.dumps(asdict(job))

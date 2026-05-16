@@ -8,6 +8,7 @@ from backend.app.core.operation_events import OperationEvent
 from backend.app.core.operations import OperationalCheck, OperationalStatus
 from backend.app.core.operations import build_readiness_response
 from backend.app.core.operations import record_dependency_failure_events
+from backend.app.jobs.redis_queue import create_redis_job_queue
 
 
 router = APIRouter(prefix="/v1/admin", tags=["admin"])
@@ -61,6 +62,15 @@ class OperationsSettingsSummary(BaseModel):
     models: ModelSettingsSummary
 
 
+class IndexingQueueSummary(BaseModel):
+    backend: str
+    status: OperationalStatus
+    queue_key: str | None = None
+    pending_jobs: int | None = None
+    max_attempts: int
+    message: str
+
+
 class OperationsStatusResponse(BaseModel):
     status: OperationalStatus
     service: str
@@ -68,6 +78,7 @@ class OperationsStatusResponse(BaseModel):
     checks: list[OperationalCheck]
     events: list[OperationEvent]
     settings: OperationsSettingsSummary
+    indexing_queue: IndexingQueueSummary
 
 
 @router.get("/operations", response_model=OperationsStatusResponse)
@@ -96,6 +107,7 @@ async def get_operations_status(
         checks=readiness.checks,
         events=event_store.list_events(),
         settings=_build_settings_summary(settings),
+        indexing_queue=_build_indexing_queue_summary(settings),
     )
 
 
@@ -134,4 +146,36 @@ def _build_settings_summary(settings: Settings) -> OperationsSettingsSummary:
             reranker=settings.reranker_model,
             embedding_vector_size=settings.embedding_vector_size,
         ),
+    )
+
+
+def _build_indexing_queue_summary(settings: Settings) -> IndexingQueueSummary:
+    if settings.indexing_queue_backend != "redis":
+        return IndexingQueueSummary(
+            backend=settings.indexing_queue_backend,
+            status="ready",
+            pending_jobs=0,
+            max_attempts=settings.indexing_queue_max_attempts,
+            message="인프로세스 인덱싱은 업로드 요청 중 즉시 처리됩니다.",
+        )
+
+    try:
+        pending_jobs = create_redis_job_queue(settings).pending_count()
+    except Exception as exc:
+        return IndexingQueueSummary(
+            backend=settings.indexing_queue_backend,
+            status="not_ready",
+            queue_key=settings.indexing_queue_redis_key,
+            pending_jobs=None,
+            max_attempts=settings.indexing_queue_max_attempts,
+            message=f"Redis 인덱싱 큐 대기건수 조회에 실패했습니다: {exc}",
+        )
+
+    return IndexingQueueSummary(
+        backend=settings.indexing_queue_backend,
+        status="ready",
+        queue_key=settings.indexing_queue_redis_key,
+        pending_jobs=pending_jobs,
+        max_attempts=settings.indexing_queue_max_attempts,
+        message="Redis 인덱싱 큐 대기건수 조회에 성공했습니다.",
     )

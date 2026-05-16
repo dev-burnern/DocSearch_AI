@@ -22,6 +22,14 @@ describe("createOperationsApiClient", () => {
             },
           ],
           events: [],
+          indexing_queue: {
+            backend: "redis",
+            status: "ready",
+            queue_key: "docsearch:indexing:queue",
+            pending_jobs: 2,
+            max_attempts: 5,
+            message: "Redis 인덱싱 큐 대기건수 조회에 성공했습니다.",
+          },
           settings: {
             environment: "development",
             debug: false,
@@ -81,6 +89,7 @@ describe("createOperationsApiClient", () => {
     expect(response.settings.rate_limit.requests).toBe(120);
     expect(response.settings.rate_limit.backend).toBe("redis");
     expect(response.settings.rate_limit.fail_open).toBe(true);
+    expect(response.indexing_queue.pending_jobs).toBe(2);
   });
 
   it("오류 응답의 메시지를 예외로 변환한다", async () => {

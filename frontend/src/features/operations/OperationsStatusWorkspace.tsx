@@ -150,6 +150,12 @@ function OperationsSummary({ response }: { response: OperationsStatusResponse })
           hybrid {response.settings.hybrid_dense_weight}/
           {response.settings.hybrid_lexical_weight}
         </Tag>
+        <Tag color={response.indexing_queue.status === "ready" ? "green" : "red"}>
+          indexing queue {response.indexing_queue.status}
+        </Tag>
+        <Tag>
+          pending {response.indexing_queue.pending_jobs ?? "unknown"}
+        </Tag>
       </Space>
 
       <Card size="small" title="런타임 설정" variant="borderless">
@@ -157,6 +163,10 @@ function OperationsSummary({ response }: { response: OperationsStatusResponse })
           <Tag>audit {response.settings.backends.audit_log}</Tag>
           <Tag>metadata {response.settings.backends.document_metadata}</Tag>
           <Tag>queue {response.settings.backends.indexing_queue}</Tag>
+          <Tag>max attempts {response.indexing_queue.max_attempts}</Tag>
+          {response.indexing_queue.queue_key ? (
+            <Tag>{response.indexing_queue.queue_key}</Tag>
+          ) : null}
           <Tag>embedding backend {response.settings.backends.embedding}</Tag>
           <Tag>reranker {response.settings.backends.reranker}</Tag>
           <Tag>{response.settings.models.llm}</Tag>
@@ -164,6 +174,9 @@ function OperationsSummary({ response }: { response: OperationsStatusResponse })
           <Tag>{response.settings.models.reranker}</Tag>
           <Tag>vector {response.settings.models.embedding_vector_size}</Tag>
         </Space>
+        <Paragraph className="answer-text">
+          {response.indexing_queue.message}
+        </Paragraph>
       </Card>
 
       <List

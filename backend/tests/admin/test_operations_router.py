@@ -88,7 +88,51 @@ def test_관리자_운영상태_API가_현재_운영_요약을_반환한다(
         "reranker": "BAAI/bge-reranker-v2-m3",
         "embedding_vector_size": 8,
     }
+    assert body["indexing_queue"] == {
+        "backend": "inprocess",
+        "status": "ready",
+        "queue_key": None,
+        "pending_jobs": 0,
+        "max_attempts": 3,
+        "message": "인프로세스 인덱싱은 업로드 요청 중 즉시 처리됩니다.",
+    }
     assert checker.called is True
+
+
+def test_관리자_운영상태_API는_Redis_인덱싱_큐_대기건수를_반환한다(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from backend.app.admin import operations
+
+    monkeypatch.setenv(
+        "DOCSEARCH_API_KEYS",
+        "admin-key|workspace-alpha|Workspace Alpha|admin",
+    )
+    monkeypatch.setenv("INDEXING_QUEUE_BACKEND", "redis")
+    monkeypatch.setenv("INDEXING_QUEUE_REDIS_KEY", "docsearch:indexing:test")
+    monkeypatch.setenv("INDEXING_QUEUE_MAX_ATTEMPTS", "5")
+    monkeypatch.setattr(
+        operations,
+        "create_redis_job_queue",
+        lambda settings: FakeRedisQueue(pending_count=7),
+    )
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get(
+        "/v1/admin/operations",
+        headers={"X-API-Key": "admin-key"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["indexing_queue"] == {
+        "backend": "redis",
+        "status": "ready",
+        "queue_key": "docsearch:indexing:test",
+        "pending_jobs": 7,
+        "max_attempts": 5,
+        "message": "Redis 인덱싱 큐 대기건수 조회에 성공했습니다.",
+    }
 
 
 def test_관리자_운영상태_API는_일반_사용자_접근을_거부한다(
@@ -188,3 +232,11 @@ class FakeDependencyHealthChecker:
     def check(self, settings) -> list[DependencyCheckResult]:
         self.called = True
         return self._checks
+
+
+class FakeRedisQueue:
+    def __init__(self, *, pending_count: int) -> None:
+        self._pending_count = pending_count
+
+    def pending_count(self) -> int:
+        return self._pending_count
