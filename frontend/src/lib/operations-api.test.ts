@@ -21,6 +21,7 @@ describe("createOperationsApiClient", () => {
               message: "운영 설정 기준을 통과했습니다.",
             },
           ],
+          events: [],
           settings: {
             environment: "development",
             debug: false,
