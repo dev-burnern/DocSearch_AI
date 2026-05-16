@@ -27,6 +27,8 @@ def test_settings_load_default_values():
     assert settings.rate_limit_window_seconds == 60
     assert settings.rate_limit_redis_prefix == "docsearch:rate-limit"
     assert settings.rate_limit_fail_open is True
+    assert settings.indexing_queue_redis_key == "docsearch:indexing:queue"
+    assert settings.indexing_queue_max_attempts == 3
 
 
 def test_settings_enable_dependency_health_checks_by_default_in_production(
@@ -59,6 +61,20 @@ def test_settings_allow_rate_limit_overrides(
     assert settings.rate_limit_window_seconds == 10
     assert settings.rate_limit_redis_prefix == "test:rate-limit"
     assert settings.rate_limit_fail_open is False
+
+
+def test_settings_allow_indexing_queue_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("INDEXING_QUEUE_BACKEND", "redis")
+    monkeypatch.setenv("INDEXING_QUEUE_REDIS_KEY", "test:indexing:queue")
+    monkeypatch.setenv("INDEXING_QUEUE_MAX_ATTEMPTS", "5")
+
+    settings = get_settings()
+
+    assert settings.indexing_queue_backend == "redis"
+    assert settings.indexing_queue_redis_key == "test:indexing:queue"
+    assert settings.indexing_queue_max_attempts == 5
 
 
 def test_settings_allow_dependency_health_timeout_override(
