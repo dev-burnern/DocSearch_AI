@@ -4,8 +4,10 @@ from pydantic import BaseModel
 from backend.app.auth.dependencies import require_admin_workspace_context
 from backend.app.auth.models import UserRole, WorkspaceContext
 from backend.app.core.config import Settings, get_settings
+from backend.app.core.operation_events import OperationEvent
 from backend.app.core.operations import OperationalCheck, OperationalStatus
 from backend.app.core.operations import build_readiness_response
+from backend.app.core.operations import record_dependency_failure_events
 
 
 router = APIRouter(prefix="/v1/admin", tags=["admin"])
@@ -53,6 +55,7 @@ class OperationsStatusResponse(BaseModel):
     service: str
     workspace: OperationsWorkspaceSummary
     checks: list[OperationalCheck]
+    events: list[OperationEvent]
     settings: OperationsSettingsSummary
 
 
@@ -66,6 +69,11 @@ async def get_operations_status(
         settings,
         dependency_health_checker=request.app.state.dependency_health_checker,
     )
+    event_store = request.app.state.operation_event_store
+    record_dependency_failure_events(
+        checks=readiness.checks,
+        event_store=event_store,
+    )
     return OperationsStatusResponse(
         status=readiness.status,
         service=readiness.service,
@@ -75,6 +83,7 @@ async def get_operations_status(
             role=workspace_context.role,
         ),
         checks=readiness.checks,
+        events=event_store.list_events(),
         settings=_build_settings_summary(settings),
     )
 
