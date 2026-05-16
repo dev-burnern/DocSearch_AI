@@ -1,6 +1,8 @@
 import json
 from dataclasses import asdict, replace
 
+from redis.exceptions import TimeoutError as RedisTimeoutError
+
 from backend.app.core.config import Settings
 from backend.app.core.operation_events import OperationEvent, OperationEventStore
 from backend.app.jobs.base import IndexDocumentJob, JobDispatchResult
@@ -40,7 +42,13 @@ class RedisJobQueue:
         )
 
     def pop(self, *, timeout_seconds: int = 5) -> IndexDocumentJob | None:
-        result = self._redis_client.brpop(self._queue_key, timeout=timeout_seconds)
+        try:
+            result = self._redis_client.brpop(
+                self._queue_key,
+                timeout=timeout_seconds,
+            )
+        except RedisTimeoutError:
+            return None
         if result is None:
             return None
 

@@ -1,6 +1,7 @@
 from backend.app.core.operation_events import InMemoryOperationEventStore
 from backend.app.jobs.base import IndexDocumentJob
 from backend.app.jobs.redis_queue import RedisJobQueue
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 
 def test_redis_job_queue_pushes_serialized_job_with_retry_policy() -> None:
@@ -33,6 +34,21 @@ def test_redis_job_queue_pops_serialized_job() -> None:
     job = queue.pop(timeout_seconds=1)
 
     assert job == _job()
+    assert redis_client.pop_calls == [
+        {"queue_key": "docsearch:indexing:test", "timeout": 1}
+    ]
+
+
+def test_redis_job_queue_treats_idle_timeout_as_empty_pop() -> None:
+    redis_client = TimeoutRedisClient()
+    queue = RedisJobQueue(
+        redis_client=redis_client,
+        queue_key="docsearch:indexing:test",
+    )
+
+    job = queue.pop(timeout_seconds=1)
+
+    assert job is None
     assert redis_client.pop_calls == [
         {"queue_key": "docsearch:indexing:test", "timeout": 1}
     ]
@@ -116,3 +132,12 @@ class FakeRedisClient:
 class FailingRedisClient:
     def rpush(self, queue_key: str, payload: str) -> None:
         raise RuntimeError("redis unavailable")
+
+
+class TimeoutRedisClient:
+    def __init__(self) -> None:
+        self.pop_calls: list[dict[str, object]] = []
+
+    def brpop(self, queue_key: str, *, timeout: int):
+        self.pop_calls.append({"queue_key": queue_key, "timeout": timeout})
+        raise RedisTimeoutError("Timeout reading from socket")

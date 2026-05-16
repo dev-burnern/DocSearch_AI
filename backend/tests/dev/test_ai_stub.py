@@ -17,11 +17,23 @@ def test_ai_stub_exposes_openai_compatible_chat_and_embeddings() -> None:
         "/v1/chat/completions",
         json={
             "model": "local-dev-llm",
-            "messages": [{"role": "user", "content": "hello"}],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": (
+                        "질문:\nhello\n\n"
+                        "문서 컨텍스트:\n[1] memo.txt#0\nhello context"
+                    ),
+                }
+            ],
         },
     )
     assert chat_response.status_code == 200
-    assert chat_response.json()["choices"][0]["message"]["content"]
+    content = chat_response.json()["choices"][0]["message"]["content"]
+    assert content
+    assert "질문: hello" in content
+    assert "문서 컨텍스트" not in content
+    assert "[1]" in content
 
     embedding_response = client.post(
         "/v1/embeddings",

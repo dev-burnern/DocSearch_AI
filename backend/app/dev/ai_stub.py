@@ -38,10 +38,10 @@ def list_models() -> dict[str, list[dict[str, str]]]:
 
 @app.post("/v1/chat/completions")
 def create_chat_completion(request: ChatCompletionRequest) -> dict[str, Any]:
-    question = _last_user_message(request.messages)
+    question = _extract_question(_last_user_message(request.messages))
     content = (
         "로컬 개발용 AI stub 응답입니다. 실제 모델 품질 검증이 아니라 "
-        f"노트북 통합 테스트용 응답입니다. 질문: {question}"
+        f"노트북 통합 테스트용 응답입니다. 질문: {question} [1]"
     )
     return {
         "id": "chatcmpl-local-stub",
@@ -84,6 +84,14 @@ def _last_user_message(messages: list[ChatMessage]) -> str:
         if message.role == "user":
             return message.content
     return ""
+
+
+def _extract_question(content: str) -> str:
+    if not content.startswith("질문:\n"):
+        return content
+
+    question = content.removeprefix("질문:\n").split("\n\n문서 컨텍스트:", 1)[0]
+    return question.strip()
 
 
 def _embedding_vector(text: str) -> list[float]:
