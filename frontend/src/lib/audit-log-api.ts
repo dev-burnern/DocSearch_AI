@@ -1,5 +1,7 @@
+import { buildAuthHeaders } from "./auth-api";
+
 export interface AuditLogRequest {
-  apiKey: string;
+  authToken: string;
   query?: string;
   documentId?: string;
   requestId?: string;
@@ -86,9 +88,7 @@ export function createAuditLogApiClient(
         `${baseUrl}/v1/audit-logs/chat${buildQueryString(payload)}`,
         {
           method: "GET",
-          headers: {
-            "X-API-Key": payload.apiKey,
-          },
+          headers: buildAuthHeaders(payload.authToken),
         },
       );
 
@@ -105,9 +105,7 @@ export function createAuditLogApiClient(
         `${baseUrl}/v1/audit-logs/chat/export${buildQueryString(payload)}`,
         {
           method: "GET",
-          headers: {
-            "X-API-Key": payload.apiKey,
-          },
+          headers: buildAuthHeaders(payload.authToken),
         },
       );
 

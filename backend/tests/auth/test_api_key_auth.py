@@ -12,7 +12,7 @@ def clear_settings_cache() -> None:
     get_settings.cache_clear()
 
 
-def test_workspace_route_requires_api_key() -> None:
+def test_workspace_route_requires_credentials() -> None:
     client = TestClient(create_app())
 
     response = client.get("/v1/workspace")
@@ -20,8 +20,8 @@ def test_workspace_route_requires_api_key() -> None:
     assert response.status_code == 401
     assert response.json() == {
         "detail": {
-            "code": "AUTH_MISSING_API_KEY",
-            "message": "API key is required.",
+            "code": "AUTH_MISSING_CREDENTIALS",
+            "message": "Authentication credential is required.",
         }
     }
 

@@ -1,7 +1,11 @@
+import { buildAuthHeaders } from "./auth-api";
+import { DocumentSecurityLevel } from "./document-api";
+
 export interface ChatSubmitPayload {
-  apiKey: string;
+  authToken: string;
   question: string;
   documentIds: string[];
+  securityLevels: DocumentSecurityLevel[];
   topK: number;
 }
 
@@ -9,6 +13,7 @@ export interface ChatCitation {
   citation_id: number;
   document_id: string;
   filename: string;
+  security_level: DocumentSecurityLevel;
   chunk_index: number;
   score: number;
   rerank_score?: number | null;
@@ -63,7 +68,7 @@ export function createChatApiClient(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-API-Key": payload.apiKey,
+          ...buildAuthHeaders(payload.authToken),
         },
         body: JSON.stringify(toChatRequestBody(payload)),
       });
@@ -81,6 +86,7 @@ function toChatRequestBody(payload: ChatSubmitPayload) {
   return {
     question: payload.question,
     document_ids: payload.documentIds,
+    security_levels: payload.securityLevels,
     top_k: payload.topK,
   };
 }

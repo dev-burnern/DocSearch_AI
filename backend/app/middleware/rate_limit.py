@@ -249,6 +249,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return response
 
     def _bucket_key(self, request: Request) -> str:
+        authorization = request.headers.get("Authorization")
+        if authorization and authorization.lower().startswith("bearer "):
+            token = authorization[7:].strip()
+            if token:
+                return f"auth_token:{token}"
+
         api_key = request.headers.get("X-API-Key")
         if api_key and api_key.strip():
             return f"api_key:{api_key.strip()}"

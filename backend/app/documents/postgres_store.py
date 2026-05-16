@@ -23,6 +23,8 @@ class PostgresDocumentMetadataStore:
                     document_id,
                     workspace_id,
                     workspace_name,
+                    uploaded_by_employee_id,
+                    security_level,
                     filename,
                     parser,
                     character_count,
@@ -38,6 +40,8 @@ class PostgresDocumentMetadataStore:
                     %(document_id)s,
                     %(workspace_id)s,
                     %(workspace_name)s,
+                    %(uploaded_by_employee_id)s,
+                    %(security_level)s,
                     %(filename)s,
                     %(parser)s,
                     %(character_count)s,
@@ -51,6 +55,8 @@ class PostgresDocumentMetadataStore:
                 )
                 ON CONFLICT (document_id) DO UPDATE SET
                     workspace_name = EXCLUDED.workspace_name,
+                    uploaded_by_employee_id = EXCLUDED.uploaded_by_employee_id,
+                    security_level = EXCLUDED.security_level,
                     filename = EXCLUDED.filename,
                     parser = EXCLUDED.parser,
                     character_count = EXCLUDED.character_count,
@@ -79,6 +85,8 @@ class PostgresDocumentMetadataStore:
                     document_id,
                     workspace_id,
                     workspace_name,
+                    uploaded_by_employee_id,
+                    security_level,
                     filename,
                     parser,
                     character_count,
@@ -161,6 +169,8 @@ class PostgresDocumentMetadataStore:
                     document_id TEXT PRIMARY KEY,
                     workspace_id TEXT NOT NULL,
                     workspace_name TEXT NOT NULL,
+                    uploaded_by_employee_id TEXT,
+                    security_level TEXT NOT NULL DEFAULT 'internal',
                     filename TEXT NOT NULL,
                     parser TEXT NOT NULL,
                     character_count INTEGER NOT NULL,
@@ -178,6 +188,18 @@ class PostgresDocumentMetadataStore:
                 """
                 ALTER TABLE document_metadata
                 ADD COLUMN IF NOT EXISTS indexing_error TEXT
+                """
+            )
+            connection.execute(
+                """
+                ALTER TABLE document_metadata
+                ADD COLUMN IF NOT EXISTS uploaded_by_employee_id TEXT
+                """
+            )
+            connection.execute(
+                """
+                ALTER TABLE document_metadata
+                ADD COLUMN IF NOT EXISTS security_level TEXT NOT NULL DEFAULT 'internal'
                 """
             )
             connection.execute(
@@ -200,6 +222,8 @@ def _document_columns() -> str:
                     document_id,
                     workspace_id,
                     workspace_name,
+                    uploaded_by_employee_id,
+                    security_level,
                     filename,
                     parser,
                     character_count,

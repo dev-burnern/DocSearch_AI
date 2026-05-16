@@ -64,11 +64,17 @@ def test_PostgresDocumentMetadataStore는_스키마를_보장하고_문서를_�
 
     assert "CREATE TABLE IF NOT EXISTS document_metadata" in connection.statements[0][0]
     assert "ADD COLUMN IF NOT EXISTS indexing_error" in connection.statements[1][0]
-    insert_sql, insert_params = connection.statements[3]
+    insert_sql, insert_params = next(
+        statement
+        for statement in connection.statements
+        if "INSERT INTO document_metadata" in statement[0]
+    )
     assert "INSERT INTO document_metadata" in insert_sql
     assert insert_params is not None
     assert insert_params["document_id"] == "doc-1"
     assert insert_params["workspace_id"] == "workspace-alpha"
+    assert insert_params["uploaded_by_employee_id"] is None
+    assert insert_params["security_level"] == "internal"
     assert insert_params["indexing_error"] is None
     assert insert_params["uploaded_at"] == datetime(2026, 5, 15, 9, 0, tzinfo=UTC)
     assert connection.commit_count == 2

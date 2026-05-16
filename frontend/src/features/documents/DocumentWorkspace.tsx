@@ -13,6 +13,7 @@ import {
   Input,
   InputNumber,
   List,
+  Select,
   Space,
   Tag,
   Typography,
@@ -23,6 +24,7 @@ import {
   DocumentClient,
   DocumentListResponse,
   DocumentRecord,
+  DocumentSecurityLevel,
   DocumentUploadResponse,
   createDocumentApiClient,
 } from "../../lib/document-api";
@@ -38,13 +40,13 @@ const { Paragraph, Text, Title } = Typography;
 interface DocumentWorkspaceProps {
   documentClient?: DocumentClient;
   searchClient?: SearchClient;
-  apiKey?: string;
+  authToken: string;
 }
 
 export function DocumentWorkspace({
   documentClient,
   searchClient,
-  apiKey: confirmedApiKey,
+  authToken,
 }: DocumentWorkspaceProps) {
   const resolvedDocumentClient = useMemo(
     () => documentClient ?? createDocumentApiClient(),
@@ -54,14 +56,18 @@ export function DocumentWorkspace({
     () => searchClient ?? createSearchApiClient(),
     [searchClient],
   );
-  const [apiKey, setApiKey] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [securityLevel, setSecurityLevel] =
+    useState<DocumentSecurityLevel>("internal");
   const [uploadResult, setUploadResult] =
     useState<DocumentUploadResponse | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [query, setQuery] = useState("");
   const [documentIds, setDocumentIds] = useState("");
+  const [searchSecurityLevels, setSearchSecurityLevels] = useState<
+    DocumentSecurityLevel[]
+  >([]);
   const [limit, setLimit] = useState(5);
   const [searchResult, setSearchResult] = useState<SearchResponse | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -78,11 +84,10 @@ export function DocumentWorkspace({
     null,
   );
 
-  const trimmedApiKey = confirmedApiKey ?? apiKey.trim();
-  const canUpload = trimmedApiKey.length > 0 && file !== null && !isUploading;
+  const canUpload = authToken.length > 0 && file !== null && !isUploading;
   const canSearch =
-    trimmedApiKey.length > 0 && query.trim().length > 0 && !isSearching;
-  const canList = trimmedApiKey.length > 0 && !isListing;
+    authToken.length > 0 && query.trim().length > 0 && !isSearching;
+  const canList = authToken.length > 0 && !isListing;
 
   async function uploadDocument() {
     if (!canUpload || file === null) {
@@ -94,8 +99,9 @@ export function DocumentWorkspace({
 
     try {
       const nextResult = await resolvedDocumentClient.uploadDocument({
-        apiKey: trimmedApiKey,
+        authToken,
         file,
+        securityLevel,
       });
       setUploadResult(nextResult);
       setDocumentIds((current) => current || nextResult.document_id);
@@ -119,9 +125,10 @@ export function DocumentWorkspace({
 
     try {
       const nextResult = await resolvedSearchClient.searchDocuments({
-        apiKey: trimmedApiKey,
+        authToken,
         query: query.trim(),
         documentIds: parseDocumentIds(documentIds),
+        securityLevels: searchSecurityLevels,
         limit,
       });
       setSearchResult(nextResult);
@@ -145,7 +152,7 @@ export function DocumentWorkspace({
 
     try {
       const nextList = await resolvedDocumentClient.listDocuments({
-        apiKey: trimmedApiKey,
+        authToken,
       });
       setDocumentList(nextList);
       setActionError(null);
@@ -160,7 +167,7 @@ export function DocumentWorkspace({
   }
 
   async function deleteDocument(record: DocumentRecord) {
-    if (!trimmedApiKey) {
+    if (!authToken) {
       return;
     }
 
@@ -169,7 +176,7 @@ export function DocumentWorkspace({
 
     try {
       await resolvedDocumentClient.deleteDocument({
-        apiKey: trimmedApiKey,
+        authToken,
         documentId: record.document_id,
       });
       setDocumentList((current) => removeDocument(current, record.document_id));
@@ -184,7 +191,7 @@ export function DocumentWorkspace({
   }
 
   async function reindexDocument(record: DocumentRecord) {
-    if (!trimmedApiKey) {
+    if (!authToken) {
       return;
     }
 
@@ -193,7 +200,7 @@ export function DocumentWorkspace({
 
     try {
       const updatedRecord = await resolvedDocumentClient.reindexDocument({
-        apiKey: trimmedApiKey,
+        authToken,
         documentId: record.document_id,
       });
       setDocumentList((current) => upsertDocument(current, updatedRecord));
@@ -219,20 +226,6 @@ export function DocumentWorkspace({
           <Title level={4} className="section-title">
             문서 업로드
           </Title>
-          {confirmedApiKey ? null : (
-            <>
-              <label className="field-label" htmlFor="document-api-key">
-                API Key
-              </label>
-              <Input.Password
-                id="document-api-key"
-                autoComplete="off"
-                value={apiKey}
-                onChange={(event) => setApiKey(event.target.value)}
-              />
-            </>
-          )}
-
           <label className="field-label" htmlFor="document-file">
             문서 파일
           </label>
@@ -240,6 +233,21 @@ export function DocumentWorkspace({
             id="document-file"
             type="file"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+          />
+
+          <label className="field-label" htmlFor="document-security-level">
+            보안 등급
+          </label>
+          <Select
+            id="document-security-level"
+            value={securityLevel}
+            onChange={setSecurityLevel}
+            options={[
+              { value: "general", label: "일반" },
+              { value: "internal", label: "사내" },
+              { value: "confidential", label: "대외비" },
+              { value: "restricted", label: "기밀" },
+            ]}
           />
 
           <Button
@@ -332,6 +340,25 @@ export function DocumentWorkspace({
               onChange={(event) => setDocumentIds(event.target.value)}
             />
 
+            <label className="field-label" htmlFor="search-security-levels">
+              보안 등급 필터
+            </label>
+            <Select
+              id="search-security-levels"
+              mode="multiple"
+              value={searchSecurityLevels}
+              onChange={(nextLevels) =>
+                setSearchSecurityLevels(nextLevels as DocumentSecurityLevel[])
+              }
+              placeholder="전체 등급 검색"
+              options={[
+                { value: "general", label: "일반" },
+                { value: "internal", label: "사내" },
+                { value: "confidential", label: "대외비" },
+                { value: "restricted", label: "기밀" },
+              ]}
+            />
+
             <label className="field-label" htmlFor="search-limit">
               검색 개수
             </label>
@@ -377,6 +404,7 @@ function UploadResult({ result }: { result: DocumentUploadResponse }) {
       <Space direction="vertical" size={8} className="chat-main-stack">
         <Space wrap>
           <Tag color="green">{result.indexing_status}</Tag>
+          <Tag color="purple">{formatSecurityLevel(result.security_level)}</Tag>
           <Tag color="blue">chunks {result.chunk_count}</Tag>
           <Tag>{result.parser}</Tag>
         </Space>
@@ -450,6 +478,7 @@ function DocumentListItem({
         <Space wrap>
           <Text strong>{record.filename}</Text>
           <Tag color="green">{record.indexing_status}</Tag>
+          <Tag color="purple">{formatSecurityLevel(record.security_level)}</Tag>
           <Tag color="blue">chunks {record.chunk_count}</Tag>
           <Tag>{record.parser}</Tag>
           <Text type="secondary">{formatUploadedAt(record.uploaded_at)}</Text>
@@ -509,6 +538,7 @@ function SearchResultItem({ chunk }: { chunk: SearchResultChunk }) {
           <Text strong>{chunk.filename}</Text>
           <Tag>{chunk.document_id}</Tag>
           <Tag>{chunk.parser}</Tag>
+          <Tag color="purple">{formatSecurityLevel(chunk.security_level)}</Tag>
           <Text type="secondary">chunk {chunk.chunk_index}</Text>
           <Text type="secondary">score {chunk.score.toFixed(2)}</Text>
         </Space>
@@ -529,6 +559,19 @@ function formatUploadedAt(value: string): string {
     dateStyle: "medium",
     timeStyle: "short",
   });
+}
+
+function formatSecurityLevel(value?: DocumentSecurityLevel): string {
+  if (value === "general") {
+    return "일반";
+  }
+  if (value === "confidential") {
+    return "대외비";
+  }
+  if (value === "restricted") {
+    return "기밀";
+  }
+  return "사내";
 }
 
 function parseDocumentIds(value: string): string[] {

@@ -72,6 +72,7 @@ class ChatService:
             filters=RetrievalFilter(
                 workspace_id=workspace_context.workspace_id,
                 document_ids=chat_request.document_ids,
+                security_levels=chat_request.security_levels,
             ),
             limit=retrieval_limit,
         )
@@ -248,6 +249,7 @@ def _build_citations(
                 citation_id=citation_id,
                 document_id=item.chunk.document_id,
                 filename=item.chunk.filename,
+                security_level=item.chunk.security_level,
                 chunk_index=item.chunk.chunk_index,
                 score=item.chunk.score,
                 rerank_score=item.rerank_score,

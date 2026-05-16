@@ -109,6 +109,7 @@ def test_chat_service_answers_with_reranked_citations() -> None:
         chat_request=ChatRequest(
             question="보안 정책 요약해줘",
             document_ids=["doc-1"],
+            security_levels=["internal"],
         ),
     )
 
@@ -116,6 +117,7 @@ def test_chat_service_answers_with_reranked_citations() -> None:
     assert retriever.filters == RetrievalFilter(
         workspace_id="workspace-alpha",
         document_ids=["doc-1"],
+        security_levels=["internal"],
     )
     assert retriever.limit == 3
     assert reranker.request is not None
@@ -135,6 +137,7 @@ def test_chat_service_answers_with_reranked_citations() -> None:
     assert response.citations[0].citation_id == 1
     assert response.citations[0].document_id == "doc-1"
     assert response.citations[0].filename == "policy.md"
+    assert response.citations[0].security_level == "internal"
     assert response.citations[0].chunk_index == 2
     assert response.citations[0].score == 0.91
     assert response.citations[0].rerank_score == 1.0

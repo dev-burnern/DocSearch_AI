@@ -7,6 +7,7 @@ import {
   Input,
   InputNumber,
   List,
+  Select,
   Space,
   Tag,
   Typography,
@@ -18,28 +19,30 @@ import {
   ChatResponse,
   createChatApiClient,
 } from "../../lib/chat-api";
+import { DocumentSecurityLevel } from "../../lib/document-api";
 
 const { TextArea } = Input;
 const { Paragraph, Text, Title } = Typography;
 
 interface ChatWorkspaceProps {
   client?: ChatClient;
-  apiKey?: string;
+  authToken: string;
 }
 
-export function ChatWorkspace({ client, apiKey: confirmedApiKey }: ChatWorkspaceProps) {
+export function ChatWorkspace({ client, authToken }: ChatWorkspaceProps) {
   const chatClient = useMemo(() => client ?? createChatApiClient(), [client]);
-  const [apiKey, setApiKey] = useState("");
   const [documentIds, setDocumentIds] = useState("");
+  const [securityLevels, setSecurityLevels] = useState<DocumentSecurityLevel[]>(
+    [],
+  );
   const [topK, setTopK] = useState(5);
   const [question, setQuestion] = useState("");
   const [response, setResponse] = useState<ChatResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const resolvedApiKey = confirmedApiKey ?? apiKey.trim();
   const canSubmit =
-    resolvedApiKey.length > 0 && question.trim().length > 0 && !isSubmitting;
+    authToken.length > 0 && question.trim().length > 0 && !isSubmitting;
 
   async function submitQuestion() {
     if (!canSubmit) {
@@ -51,9 +54,10 @@ export function ChatWorkspace({ client, apiKey: confirmedApiKey }: ChatWorkspace
 
     try {
       const nextResponse = await chatClient.ask({
-        apiKey: resolvedApiKey,
+        authToken,
         question: question.trim(),
         documentIds: parseDocumentIds(documentIds),
+        securityLevels,
         topK,
       });
       setResponse(nextResponse);
@@ -71,20 +75,6 @@ export function ChatWorkspace({ client, apiKey: confirmedApiKey }: ChatWorkspace
     <section className="chat-workspace" aria-label="채팅 작업 화면">
       <Card className="chat-panel" title="질문 설정" variant="borderless">
         <form className="form-stack" onSubmit={(event) => event.preventDefault()}>
-          {confirmedApiKey ? null : (
-            <>
-              <label className="field-label" htmlFor="api-key">
-                API Key
-              </label>
-              <Input.Password
-                id="api-key"
-                autoComplete="off"
-                value={apiKey}
-                onChange={(event) => setApiKey(event.target.value)}
-              />
-            </>
-          )}
-
           <label className="field-label" htmlFor="document-ids">
             문서 ID
           </label>
@@ -92,6 +82,25 @@ export function ChatWorkspace({ client, apiKey: confirmedApiKey }: ChatWorkspace
             id="document-ids"
             value={documentIds}
             onChange={(event) => setDocumentIds(event.target.value)}
+          />
+
+          <label className="field-label" htmlFor="chat-security-levels">
+            보안 등급
+          </label>
+          <Select
+            id="chat-security-levels"
+            mode="multiple"
+            value={securityLevels}
+            onChange={(nextLevels) =>
+              setSecurityLevels(nextLevels as DocumentSecurityLevel[])
+            }
+            placeholder="전체 등급 검색"
+            options={[
+              { value: "general", label: "일반" },
+              { value: "internal", label: "사내" },
+              { value: "confidential", label: "대외비" },
+              { value: "restricted", label: "기밀" },
+            ]}
           />
 
           <label className="field-label" htmlFor="top-k">
@@ -170,6 +179,9 @@ function AnswerResult({ response }: { response: ChatResponse }) {
                 <Space wrap>
                   <Tag>{citation.citation_id}</Tag>
                   <Text strong>{citation.filename}</Text>
+                  <Tag color="purple">
+                    {formatSecurityLevel(citation.security_level)}
+                  </Tag>
                   <Text type="secondary">score {citation.score.toFixed(2)}</Text>
                   {citation.rerank_score ? (
                     <Text type="secondary">
@@ -192,4 +204,17 @@ function parseDocumentIds(value: string): string[] {
     .split(",")
     .map((documentId) => documentId.trim())
     .filter(Boolean);
+}
+
+function formatSecurityLevel(value?: DocumentSecurityLevel): string {
+  if (value === "general") {
+    return "일반";
+  }
+  if (value === "confidential") {
+    return "대외비";
+  }
+  if (value === "restricted") {
+    return "기밀";
+  }
+  return "사내";
 }

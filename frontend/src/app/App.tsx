@@ -1,163 +1,306 @@
-import { Alert, Button, Input, Layout, Space, Tabs, Tag, Typography } from "antd";
+import {
+  AuditOutlined,
+  FileOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  MessageOutlined,
+  SettingOutlined,
+} from "@ant-design/icons";
+import { Alert, Button, Card, Input, Layout, Menu, Space, Tag, Typography } from "antd";
 import { useMemo, useState } from "react";
 
-import { ChatWorkspace } from "../features/chat/ChatWorkspace";
 import { AuditLogWorkspace } from "../features/audit/AuditLogWorkspace";
+import { ChatWorkspace } from "../features/chat/ChatWorkspace";
 import { DocumentWorkspace } from "../features/documents/DocumentWorkspace";
 import { OperationsStatusWorkspace } from "../features/operations/OperationsStatusWorkspace";
 import {
-  WorkspaceClient,
-  WorkspaceContext,
-  createWorkspaceApiClient,
-} from "../lib/workspace-api";
+  AuthClient,
+  AuthWorkspace,
+  createAuthApiClient,
+} from "../lib/auth-api";
 
-const { Content, Header } = Layout;
-const { Paragraph, Title } = Typography;
+const { Content, Header, Sider } = Layout;
+const { Paragraph, Text, Title } = Typography;
 
 interface AppProps {
-  workspaceClient?: WorkspaceClient;
+  authClient?: AuthClient;
 }
 
-export default function App({ workspaceClient }: AppProps) {
-  const resolvedWorkspaceClient = useMemo(
-    () => workspaceClient ?? createWorkspaceApiClient(),
-    [workspaceClient],
+type ActiveView = "chat" | "documents" | "operations" | "audit";
+type AuthMode = "login" | "signup";
+
+export default function App({ authClient }: AppProps) {
+  const resolvedAuthClient = useMemo(
+    () => authClient ?? createAuthApiClient(),
+    [authClient],
   );
-  const [apiKey, setApiKey] = useState("");
-  const [confirmedApiKey, setConfirmedApiKey] = useState<string | null>(null);
-  const [workspaceContext, setWorkspaceContext] =
-    useState<WorkspaceContext | null>(null);
-  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
-  const [isCheckingWorkspace, setIsCheckingWorkspace] = useState(false);
-  const [activeTab, setActiveTab] = useState("chat");
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [employeeId, setEmployeeId] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [workspaceContext, setWorkspaceContext] = useState<AuthWorkspace | null>(
+    null,
+  );
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [activeView, setActiveView] = useState<ActiveView>("chat");
+  const [collapsed, setCollapsed] = useState(false);
 
-  const canCheckWorkspace = apiKey.trim().length > 0 && !isCheckingWorkspace;
+  const isAuthenticated = authToken !== null && workspaceContext !== null;
   const isAdmin = workspaceContext?.role === "admin";
-  const sharedApiKey = confirmedApiKey ?? undefined;
+  const canSubmitAuth =
+    employeeId.trim().length > 0 && password.length > 0 && !isAuthenticating;
 
-  async function checkWorkspace() {
-    if (!canCheckWorkspace) {
+  async function submitAuth() {
+    if (!canSubmitAuth) {
       return;
     }
 
-    setIsCheckingWorkspace(true);
-    setWorkspaceError(null);
+    setIsAuthenticating(true);
+    setAuthError(null);
 
     try {
-      const nextContext = await resolvedWorkspaceClient.getWorkspace({
-        apiKey: apiKey.trim(),
-      });
-      setWorkspaceContext(nextContext);
-      setConfirmedApiKey(apiKey.trim());
-      if (
-        nextContext.role !== "admin" &&
-        (activeTab === "audit" || activeTab === "operations")
-      ) {
-        setActiveTab("chat");
-      }
+      const payload = {
+        employeeId: employeeId.trim(),
+        password,
+        displayName: displayName.trim() || undefined,
+      };
+      const response =
+        authMode === "login"
+          ? await resolvedAuthClient.login(payload)
+          : await resolvedAuthClient.signup(payload);
+      setAuthToken(response.access_token);
+      setWorkspaceContext(response.workspace);
+      setActiveView("chat");
     } catch (error) {
+      setAuthToken(null);
       setWorkspaceContext(null);
-      setConfirmedApiKey(null);
-      if (activeTab === "audit" || activeTab === "operations") {
-        setActiveTab("chat");
-      }
-      setWorkspaceError(
-        error instanceof Error ? error.message : "API Key 확인에 실패했습니다.",
+      setAuthError(
+        error instanceof Error ? error.message : "로그인 요청에 실패했습니다.",
       );
     } finally {
-      setIsCheckingWorkspace(false);
+      setIsAuthenticating(false);
     }
   }
 
-  const tabItems = [
+  function logout() {
+    setAuthToken(null);
+    setWorkspaceContext(null);
+    setPassword("");
+    setActiveView("chat");
+  }
+
+  const menuItems = [
     {
       key: "chat",
-      label: "채팅",
-      children: <ChatWorkspace apiKey={sharedApiKey} />,
+      icon: <MessageOutlined />,
+      label: "AI 채팅",
+      disabled: !isAuthenticated,
     },
     {
       key: "documents",
-      label: "문서",
-      children: <DocumentWorkspace apiKey={sharedApiKey} />,
+      icon: <FileOutlined />,
+      label: "문서 관리",
+      disabled: !isAuthenticated,
+    },
+    {
+      key: "operations",
+      icon: <SettingOutlined />,
+      label: "운영 상태",
+      disabled: !isAdmin,
+    },
+    {
+      key: "audit",
+      icon: <AuditOutlined />,
+      label: "감사 로그",
+      disabled: !isAdmin,
     },
   ];
 
-  if (isAdmin) {
-    tabItems.push({
-      key: "operations",
-      label: "운영 상태",
-      children: <OperationsStatusWorkspace apiKey={sharedApiKey} />,
-    });
-    tabItems.push({
-      key: "audit",
-      label: "감사 로그",
-      children: <AuditLogWorkspace apiKey={sharedApiKey} />,
-    });
-  }
-
   return (
     <Layout className="app-shell">
-      <Header className="app-header">
-        <Space direction="vertical" size={2}>
-          <Title level={3} className="app-title">
-            DocSearch AI
+      <Sider
+        trigger={null}
+        collapsible
+        collapsed={collapsed}
+        theme="light"
+        className="app-sider"
+      >
+        <div className="app-logo">
+          <Text strong className="app-logo-text">
+            {collapsed ? "DS" : "DocSearch AI"}
+          </Text>
+        </div>
+        <Menu
+          mode="inline"
+          selectedKeys={isAuthenticated ? [activeView] : []}
+          items={menuItems}
+          onClick={({ key }) => setActiveView(key as ActiveView)}
+          className="app-menu"
+        />
+      </Sider>
+
+      <Layout className="app-main-layout">
+        <Header className="app-header">
+          <Button
+            type="text"
+            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={() => setCollapsed((value) => !value)}
+            aria-label={collapsed ? "사이드바 펼치기" : "사이드바 접기"}
+          />
+
+          {workspaceContext ? (
+            <Space wrap size={8}>
+              <Tag color="green">{workspaceContext.workspace_name}</Tag>
+              <Tag color={workspaceContext.role === "admin" ? "purple" : "blue"}>
+                {workspaceContext.role}
+              </Tag>
+              <Tag>{workspaceContext.employee_id}</Tag>
+              <Button size="small" onClick={logout}>
+                로그아웃
+              </Button>
+            </Space>
+          ) : (
+            <Text type="secondary">사번으로 로그인하세요</Text>
+          )}
+        </Header>
+
+        <Content className="app-content">
+          {!isAuthenticated ? (
+            <AuthCard
+              authMode={authMode}
+              employeeId={employeeId}
+              password={password}
+              displayName={displayName}
+              errorMessage={authError}
+              isSubmitting={isAuthenticating}
+              canSubmit={canSubmitAuth}
+              onAuthModeChange={setAuthMode}
+              onEmployeeIdChange={setEmployeeId}
+              onPasswordChange={setPassword}
+              onDisplayNameChange={setDisplayName}
+              onSubmit={() => void submitAuth()}
+            />
+          ) : null}
+          {isAuthenticated && activeView === "chat" ? (
+            <ChatWorkspace authToken={authToken} />
+          ) : null}
+          {isAuthenticated && activeView === "documents" ? (
+            <DocumentWorkspace authToken={authToken} />
+          ) : null}
+          {isAuthenticated && activeView === "operations" && isAdmin ? (
+            <OperationsStatusWorkspace authToken={authToken} />
+          ) : null}
+          {isAuthenticated && activeView === "audit" && isAdmin ? (
+            <AuditLogWorkspace authToken={authToken} />
+          ) : null}
+        </Content>
+      </Layout>
+    </Layout>
+  );
+}
+
+interface AuthCardProps {
+  authMode: AuthMode;
+  employeeId: string;
+  password: string;
+  displayName: string;
+  errorMessage: string | null;
+  isSubmitting: boolean;
+  canSubmit: boolean;
+  onAuthModeChange(value: AuthMode): void;
+  onEmployeeIdChange(value: string): void;
+  onPasswordChange(value: string): void;
+  onDisplayNameChange(value: string): void;
+  onSubmit(): void;
+}
+
+function AuthCard({
+  authMode,
+  employeeId,
+  password,
+  displayName,
+  errorMessage,
+  isSubmitting,
+  canSubmit,
+  onAuthModeChange,
+  onEmployeeIdChange,
+  onPasswordChange,
+  onDisplayNameChange,
+  onSubmit,
+}: AuthCardProps) {
+  const isSignup = authMode === "signup";
+
+  return (
+    <Card className="auth-card" variant="borderless">
+      <form
+        className="auth-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit();
+        }}
+      >
+        <Space direction="vertical" size={4}>
+          <Title level={3} className="section-title">
+            {isSignup ? "회원가입" : "로그인"}
           </Title>
-          <Paragraph className="app-subtitle">
-            온프레미스 RAG 문서 질의응답
+          <Paragraph className="auth-copy">
+            사번과 비밀번호로 DocSearch AI에 접속합니다.
           </Paragraph>
         </Space>
-        <Space wrap size={8} className="app-tags">
-          <Tag color="blue">React</Tag>
-          <Tag color="green">FastAPI</Tag>
-          <Tag color="purple">vLLM</Tag>
-          <Tag color="cyan">Qdrant</Tag>
-        </Space>
-      </Header>
-      <Content className="app-content">
-        <section className="workspace-auth" aria-label="워크스페이스 인증">
-          <form
-            className="workspace-auth-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void checkWorkspace();
-            }}
-          >
-            <label className="field-label" htmlFor="shared-api-key">
-              공통 API Key
-            </label>
-            <Input.Password
-              id="shared-api-key"
-              autoComplete="off"
-              value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
-            />
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={isCheckingWorkspace}
-              disabled={!canCheckWorkspace}
-            >
-              키 확인
-            </Button>
-            {workspaceContext ? (
-              <Space wrap>
-                <Tag color="green">{workspaceContext.workspace_name}</Tag>
-                <Tag color={workspaceContext.role === "admin" ? "purple" : "blue"}>
-                  {workspaceContext.role}
-                </Tag>
-              </Space>
-            ) : null}
-          </form>
-          {workspaceError ? (
-            <Alert type="error" message={workspaceError} showIcon />
-          ) : null}
-        </section>
-        <Tabs
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          items={tabItems}
+
+        <label className="field-label" htmlFor="employee-id">
+          사번
+        </label>
+        <Input
+          id="employee-id"
+          autoComplete="username"
+          value={employeeId}
+          onChange={(event) => onEmployeeIdChange(event.target.value)}
         />
-      </Content>
-    </Layout>
+
+        {isSignup ? (
+          <>
+            <label className="field-label" htmlFor="display-name">
+              이름
+            </label>
+            <Input
+              id="display-name"
+              autoComplete="name"
+              value={displayName}
+              onChange={(event) => onDisplayNameChange(event.target.value)}
+            />
+          </>
+        ) : null}
+
+        <label className="field-label" htmlFor="password">
+          비밀번호
+        </label>
+        <Input.Password
+          id="password"
+          autoComplete={isSignup ? "new-password" : "current-password"}
+          value={password}
+          onChange={(event) => onPasswordChange(event.target.value)}
+        />
+
+        {errorMessage ? <Alert type="error" message={errorMessage} showIcon /> : null}
+
+        <Button
+          type="primary"
+          htmlType="submit"
+          loading={isSubmitting}
+          disabled={!canSubmit}
+        >
+          {isSignup ? "회원가입" : "로그인"}
+        </Button>
+        <Button
+          type="link"
+          onClick={() => onAuthModeChange(isSignup ? "login" : "signup")}
+        >
+          {isSignup ? "이미 계정이 있나요? 로그인" : "계정이 없나요? 회원가입"}
+        </Button>
+      </form>
+    </Card>
   );
 }

@@ -12,6 +12,7 @@ from backend.app.documents.router import (
     get_qdrant_store,
     get_runtime_settings,
 )
+from backend.app.documents.security import validate_document_security_levels
 from backend.app.indexing.embedder import EmbeddingProviderError
 from backend.app.llm.base import LLMClient, LLMProviderError
 from backend.app.llm.profiles import get_default_llm_profile
@@ -76,9 +77,16 @@ async def answer_question(
     chat_service: ChatService = Depends(get_chat_service),
 ) -> ChatResponse:
     try:
+        validated_request = chat_request.model_copy(
+            update={
+                "security_levels": validate_document_security_levels(
+                    chat_request.security_levels,
+                ),
+            },
+        )
         return chat_service.answer(
             workspace_context=workspace_context,
-            chat_request=chat_request,
+            chat_request=validated_request,
         )
     except ChatContextNotFoundError as exc:
         raise HTTPException(

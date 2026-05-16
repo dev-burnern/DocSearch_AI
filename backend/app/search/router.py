@@ -8,6 +8,7 @@ from backend.app.documents.router import (
     get_qdrant_store,
     get_runtime_settings,
 )
+from backend.app.documents.security import validate_document_security_levels
 from backend.app.indexing.embedder import EmbeddingProviderError
 from backend.app.retrieval.filters import RetrievalFilter
 from backend.app.retrieval.retriever import Retriever, build_retriever
@@ -41,6 +42,9 @@ async def search_documents(
             filters=RetrievalFilter(
                 workspace_id=workspace_context.workspace_id,
                 document_ids=search_request.document_ids,
+                security_levels=validate_document_security_levels(
+                    search_request.security_levels,
+                ),
             ),
             limit=search_request.limit,
         )
@@ -58,6 +62,7 @@ async def search_documents(
             document_id=chunk.document_id,
             filename=chunk.filename,
             parser=chunk.parser,
+            security_level=chunk.security_level,
             chunk_index=chunk.chunk_index,
             score=chunk.score,
             snippet=chunk.chunk_text,

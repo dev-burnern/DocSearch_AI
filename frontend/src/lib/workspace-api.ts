@@ -1,7 +1,9 @@
+import { buildAuthHeaders } from "./auth-api";
+
 export type WorkspaceRole = "member" | "admin";
 
 export interface WorkspaceRequest {
-  apiKey: string;
+  authToken: string;
 }
 
 export interface WorkspaceContext {
@@ -9,6 +11,8 @@ export interface WorkspaceContext {
   workspace_id: string;
   workspace_name: string;
   role: WorkspaceRole;
+  employee_id?: string | null;
+  display_name?: string | null;
 }
 
 export interface WorkspaceClient {
@@ -43,9 +47,7 @@ export function createWorkspaceApiClient(
     async getWorkspace(payload: WorkspaceRequest): Promise<WorkspaceContext> {
       const response = await fetcher(`${baseUrl}/v1/workspace`, {
         method: "GET",
-        headers: {
-          "X-API-Key": payload.apiKey,
-        },
+        headers: buildAuthHeaders(payload.authToken),
       });
 
       if (!response.ok) {

@@ -16,6 +16,7 @@ describe("ChatWorkspace", () => {
             citation_id: 1,
             document_id: "doc-1",
             filename: "policy.md",
+            security_level: "internal",
             chunk_index: 0,
             score: 0.88,
             rerank_score: 0.94,
@@ -31,9 +32,8 @@ describe("ChatWorkspace", () => {
       }),
     };
 
-    render(<ChatWorkspace client={client} />);
+    render(<ChatWorkspace authToken="auth-token" client={client} />);
 
-    await user.type(screen.getByLabelText("API Key"), "local-dev-key");
     await user.type(screen.getByLabelText("문서 ID"), "doc-1, doc-2");
     await user.type(screen.getByLabelText("질문"), "정책 문서 요약해줘");
 
@@ -44,9 +44,10 @@ describe("ChatWorkspace", () => {
 
     await waitFor(() => {
       expect(client.ask).toHaveBeenCalledWith({
-        apiKey: "local-dev-key",
+        authToken: "auth-token",
         question: "정책 문서 요약해줘",
         documentIds: ["doc-1", "doc-2"],
+        securityLevels: [],
         topK: 5,
       });
     });

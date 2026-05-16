@@ -2,167 +2,152 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
+import { AuthClient, AuthResponse } from "../lib/auth-api";
 import App from "./App";
-import { WorkspaceClient, WorkspaceContext } from "../lib/workspace-api";
 
 describe("App", () => {
-  it("채팅 작업 화면을 기본 화면으로 보여준다", () => {
+  it("로그인 전에는 사번 로그인 화면을 보여준다", () => {
     render(<App />);
 
-    expect(
-      screen.getByRole("heading", { name: "DocSearch AI" }),
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText("API Key")).toBeInTheDocument();
-    expect(screen.getByLabelText("질문")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /질문 보내기/ }),
-    ).toBeDisabled();
-    expect(screen.queryByRole("tab", { name: "감사 로그" })).not.toBeInTheDocument();
+    expect(screen.getByText("DocSearch AI")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "로그인" })).toBeInTheDocument();
+    expect(screen.getByLabelText("사번")).toBeInTheDocument();
+    expect(screen.getByLabelText("비밀번호")).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /AI 채팅/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(screen.queryByLabelText("API Key")).not.toBeInTheDocument();
   });
 
-  it("관리자 API Key를 확인하면 감사 로그 탭을 보여준다", async () => {
+  it("관리자로 로그인하면 운영 상태와 감사 로그 메뉴를 사용할 수 있다", async () => {
     const user = userEvent.setup();
-    const workspaceClient = createWorkspaceClient({
-      request_id: "req_1",
-      workspace_id: "workspace-alpha",
-      workspace_name: "Workspace Alpha",
-      role: "admin",
-    });
+    const authClient = createAuthClient(
+      buildAuthResponse({ role: "admin", employee_id: "1001" }),
+    );
 
-    render(<App workspaceClient={workspaceClient} />);
+    render(<App authClient={authClient} />);
 
-    await user.type(screen.getByLabelText("공통 API Key"), "admin-key");
-    await user.click(screen.getByRole("button", { name: /키 확인/ }));
+    await user.type(screen.getByLabelText("사번"), "1001");
+    await user.type(screen.getByLabelText("비밀번호"), "password");
+    await user.click(screen.getByRole("button", { name: "로그인" }));
 
-    expect(await screen.findByText("Workspace Alpha")).toBeInTheDocument();
+    expect(await screen.findByText("Local Workspace")).toBeInTheDocument();
     expect(screen.getByText("admin")).toBeInTheDocument();
-    await user.click(screen.getByRole("tab", { name: "운영 상태" }));
-
-    expect(
-      screen.getByRole("heading", { name: "운영 상태" }),
-    ).toBeInTheDocument();
-    await user.click(screen.getByRole("tab", { name: "감사 로그" }));
-
-    expect(
-      screen.getByRole("heading", { name: "채팅 감사 로그" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /로그 조회/ }),
-    ).toBeEnabled();
-    expect(workspaceClient.requests).toEqual(["admin-key"]);
-  });
-
-  it("일반 사용자 API Key를 확인하면 감사 로그 탭을 숨긴다", async () => {
-    const user = userEvent.setup();
-    const workspaceClient = createWorkspaceClient({
-      request_id: "req_1",
-      workspace_id: "workspace-alpha",
-      workspace_name: "Workspace Alpha",
-      role: "member",
-    });
-
-    render(<App workspaceClient={workspaceClient} />);
-
-    await user.type(screen.getByLabelText("공통 API Key"), "member-key");
-    await user.click(screen.getByRole("button", { name: /키 확인/ }));
-
-    expect(await screen.findByText("Workspace Alpha")).toBeInTheDocument();
-    expect(screen.getByText("member")).toBeInTheDocument();
-    expect(screen.queryByRole("tab", { name: "운영 상태" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("tab", { name: "감사 로그" })).not.toBeInTheDocument();
-  });
-
-  it("감사 로그 탭에서 일반 사용자로 재확인하면 채팅 탭으로 이동한다", async () => {
-    const user = userEvent.setup();
-    const workspaceClient = createSequenceWorkspaceClient([
-      {
-        request_id: "req_1",
-        workspace_id: "workspace-alpha",
-        workspace_name: "Workspace Alpha",
-        role: "admin",
-      },
-      {
-        request_id: "req_2",
-        workspace_id: "workspace-alpha",
-        workspace_name: "Workspace Alpha",
-        role: "member",
-      },
+    expect(screen.getByText("1001")).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /운영 상태/ })).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(screen.getByRole("menuitem", { name: /감사 로그/ })).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(authClient.loginRequests).toEqual([
+      { employeeId: "1001", password: "password", displayName: undefined },
     ]);
-
-    render(<App workspaceClient={workspaceClient} />);
-
-    const apiKeyInput = screen.getByLabelText("공통 API Key");
-    await user.type(apiKeyInput, "admin-key");
-    await user.click(screen.getByRole("button", { name: /키 확인/ }));
-    await user.click(await screen.findByRole("tab", { name: "운영 상태" }));
-    expect(
-      screen.getByRole("heading", { name: "운영 상태" }),
-    ).toBeInTheDocument();
-
-    await user.clear(apiKeyInput);
-    await user.type(apiKeyInput, "member-key");
-    await user.click(screen.getByRole("button", { name: /키 확인/ }));
-
-    expect(screen.queryByRole("tab", { name: "운영 상태" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("tab", { name: "감사 로그" })).not.toBeInTheDocument();
-    expect(screen.getByRole("tabpanel", { name: "채팅" })).toBeInTheDocument();
   });
 
-  it("API Key 확인 실패 메시지를 보여준다", async () => {
+  it("일반 사용자로 로그인하면 관리자 메뉴는 비활성화한다", async () => {
     const user = userEvent.setup();
-    const workspaceClient: WorkspaceClient = {
-      async getWorkspace() {
-        throw new Error("API key is invalid.");
+    const authClient = createAuthClient(
+      buildAuthResponse({ role: "member", employee_id: "1002" }),
+    );
+
+    render(<App authClient={authClient} />);
+
+    await user.type(screen.getByLabelText("사번"), "1002");
+    await user.type(screen.getByLabelText("비밀번호"), "password");
+    await user.click(screen.getByRole("button", { name: "로그인" }));
+
+    expect(await screen.findByText("member")).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /운영 상태/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(screen.getByRole("menuitem", { name: /감사 로그/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("회원가입 화면에서 이름과 사번, 비밀번호를 전송한다", async () => {
+    const user = userEvent.setup();
+    const authClient = createAuthClient(
+      buildAuthResponse({ role: "member", employee_id: "2001" }),
+    );
+
+    render(<App authClient={authClient} />);
+
+    await user.click(screen.getByRole("button", { name: /회원가입/ }));
+    await user.type(screen.getByLabelText("사번"), "2001");
+    await user.type(screen.getByLabelText("이름"), "홍길동");
+    await user.type(screen.getByLabelText("비밀번호"), "pass1234");
+    await user.click(screen.getByRole("button", { name: "회원가입" }));
+
+    expect(await screen.findByText("2001")).toBeInTheDocument();
+    expect(authClient.signupRequests).toEqual([
+      { employeeId: "2001", password: "pass1234", displayName: "홍길동" },
+    ]);
+  });
+
+  it("로그인 실패 메시지를 보여준다", async () => {
+    const user = userEvent.setup();
+    const authClient: AuthClient = {
+      async login() {
+        throw new Error("사번 또는 비밀번호가 올바르지 않습니다.");
+      },
+      async signup() {
+        throw new Error("not used");
       },
     };
 
-    render(<App workspaceClient={workspaceClient} />);
+    render(<App authClient={authClient} />);
 
-    await user.type(screen.getByLabelText("공통 API Key"), "bad-key");
-    await user.click(screen.getByRole("button", { name: /키 확인/ }));
-
-    expect(await screen.findByText("API key is invalid.")).toBeInTheDocument();
-    expect(screen.queryByRole("tab", { name: "감사 로그" })).not.toBeInTheDocument();
-  });
-
-  it("문서 탭으로 전환한다", async () => {
-    const user = userEvent.setup();
-
-    render(<App />);
-
-    await user.click(screen.getByRole("tab", { name: "문서" }));
+    await user.type(screen.getByLabelText("사번"), "9999");
+    await user.type(screen.getByLabelText("비밀번호"), "wrong");
+    await user.click(screen.getByRole("button", { name: "로그인" }));
 
     expect(
-      screen.getByRole("heading", { name: "문서 업로드" }),
+      await screen.findByText("사번 또는 비밀번호가 올바르지 않습니다."),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /문서 업로드/ }),
-    ).toBeDisabled();
   });
 });
 
-function createWorkspaceClient(context: WorkspaceContext): WorkspaceClient & {
-  requests: string[];
+function createAuthClient(response: AuthResponse): AuthClient & {
+  loginRequests: unknown[];
+  signupRequests: unknown[];
 } {
-  const requests: string[] = [];
+  const loginRequests: unknown[] = [];
+  const signupRequests: unknown[] = [];
   return {
-    requests,
-    async getWorkspace(payload) {
-      requests.push(payload.apiKey);
-      return context;
+    loginRequests,
+    signupRequests,
+    async login(payload) {
+      loginRequests.push(payload);
+      return response;
+    },
+    async signup(payload) {
+      signupRequests.push(payload);
+      return response;
     },
   };
 }
 
-function createSequenceWorkspaceClient(
-  contexts: WorkspaceContext[],
-): WorkspaceClient {
-  let index = 0;
+function buildAuthResponse(
+  overrides: Partial<AuthResponse["workspace"]> = {},
+): AuthResponse {
   return {
-    async getWorkspace() {
-      const context = contexts[index] ?? contexts[contexts.length - 1];
-      index += 1;
-      return context;
+    access_token: "auth-token",
+    token_type: "bearer",
+    workspace: {
+      request_id: "req_1",
+      workspace_id: "local-workspace",
+      workspace_name: "Local Workspace",
+      role: "member",
+      employee_id: "1002",
+      display_name: "사용자",
+      ...overrides,
     },
   };
 }

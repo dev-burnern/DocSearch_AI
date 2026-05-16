@@ -1,5 +1,5 @@
 import { ReloadOutlined } from "@ant-design/icons";
-import { Alert, Button, Card, Empty, Input, List, Space, Tag, Typography } from "antd";
+import { Alert, Button, Card, Empty, List, Space, Tag, Typography } from "antd";
 import { useMemo, useState } from "react";
 
 import {
@@ -14,26 +14,24 @@ const { Paragraph, Text, Title } = Typography;
 
 interface OperationsStatusWorkspaceProps {
   client?: OperationsClient;
-  apiKey?: string;
+  authToken: string;
 }
 
 export function OperationsStatusWorkspace({
   client,
-  apiKey: confirmedApiKey,
+  authToken,
 }: OperationsStatusWorkspaceProps) {
   const operationsClient = useMemo(
     () => client ?? createOperationsApiClient(),
     [client],
   );
-  const [apiKey, setApiKey] = useState("");
   const [response, setResponse] = useState<OperationsStatusResponse | null>(
     null,
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const resolvedApiKey = confirmedApiKey ?? apiKey.trim();
-  const canSubmit = resolvedApiKey.length > 0 && !isLoading;
+  const canSubmit = authToken.length > 0 && !isLoading;
 
   async function loadOperationsStatus() {
     if (!canSubmit) {
@@ -45,7 +43,7 @@ export function OperationsStatusWorkspace({
 
     try {
       const nextResponse = await operationsClient.getOperationsStatus({
-        apiKey: resolvedApiKey,
+        authToken,
       });
       setResponse(nextResponse);
     } catch (error) {
@@ -68,20 +66,6 @@ export function OperationsStatusWorkspace({
             void loadOperationsStatus();
           }}
         >
-          {confirmedApiKey ? null : (
-            <>
-              <label className="field-label" htmlFor="operations-api-key">
-                API Key
-              </label>
-              <Input.Password
-                id="operations-api-key"
-                autoComplete="off"
-                value={apiKey}
-                onChange={(event) => setApiKey(event.target.value)}
-              />
-            </>
-          )}
-
           <Button
             type="primary"
             htmlType="submit"

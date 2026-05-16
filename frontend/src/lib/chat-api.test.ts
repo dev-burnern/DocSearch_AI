@@ -3,12 +3,12 @@ import { describe, expect, it, vi } from "vitest";
 import { createChatApiClient } from "./chat-api";
 
 describe("createChatApiClient", () => {
-  it("채팅 API에 API Key와 질문 요청을 전송한다", async () => {
+  it("Bearer 토큰과 질문 요청을 전송한다", async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
-          answer: "문서 기준 답변입니다. [1]",
-          model: "google/gemma-4-E4B-it",
+          answer: "문서 기반 답변입니다. [1]",
+          model: "local-model",
           citations: [],
           usage: {},
           retrieved_chunk_count: 0,
@@ -16,15 +16,13 @@ describe("createChatApiClient", () => {
         { status: 200, headers: { "Content-Type": "application/json" } },
       ),
     );
-    const client = createChatApiClient({
-      baseUrl: "http://api.local",
-      fetcher,
-    });
+    const client = createChatApiClient({ baseUrl: "http://api.local", fetcher });
 
     const response = await client.ask({
-      apiKey: "local-dev-key",
-      question: "정책 문서 요약해줘",
+      authToken: "auth-token",
+      question: "정책 요약해줘",
       documentIds: ["doc-1"],
+      securityLevels: ["restricted"],
       topK: 5,
     });
 
@@ -32,41 +30,37 @@ describe("createChatApiClient", () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": "local-dev-key",
+        Authorization: "Bearer auth-token",
       },
       body: JSON.stringify({
-        question: "정책 문서 요약해줘",
+        question: "정책 요약해줘",
         document_ids: ["doc-1"],
+        security_levels: ["restricted"],
         top_k: 5,
       }),
     });
-    expect(response.answer).toBe("문서 기준 답변입니다. [1]");
+    expect(response.answer).toBe("문서 기반 답변입니다. [1]");
   });
 
-  it("API 오류 메시지를 사용자에게 전달할 수 있는 오류로 변환한다", async () => {
+  it("API 오류 메시지를 예외로 변환한다", async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
-          detail: {
-            code: "AUTH_INVALID_API_KEY",
-            message: "API key is invalid.",
-          },
+          detail: { code: "AUTH_INVALID_TOKEN", message: "토큰이 올바르지 않습니다." },
         }),
         { status: 401, headers: { "Content-Type": "application/json" } },
       ),
     );
-    const client = createChatApiClient({
-      baseUrl: "",
-      fetcher,
-    });
+    const client = createChatApiClient({ baseUrl: "", fetcher });
 
     await expect(
       client.ask({
-        apiKey: "bad-key",
+        authToken: "bad-token",
         question: "질문",
         documentIds: [],
+        securityLevels: [],
         topK: 5,
       }),
-    ).rejects.toThrow("API key is invalid.");
+    ).rejects.toThrow("토큰이 올바르지 않습니다.");
   });
 });
