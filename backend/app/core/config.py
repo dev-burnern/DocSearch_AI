@@ -1,0 +1,259 @@
+from functools import lru_cache
+import os
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+DEFAULT_API_KEY = "local-dev-key"
+DEFAULT_API_KEYS = f"{DEFAULT_API_KEY}|local-workspace|Local Workspace"
+DEFAULT_AUTH_USERS = (
+    "1001|password|local-workspace|Local Workspace|admin|관리자;"
+    "2301029|password|local-workspace|Local Workspace|admin|관리자;"
+    "1002|password|local-workspace|Local Workspace|member|사용자"
+)
+
+
+def _bool_env(name: str, default: bool) -> bool:
+    return os.getenv(name, str(default)).lower() == "true"
+
+
+def _is_production_env() -> bool:
+    return os.getenv("APP_ENV", "development").strip().lower() == "production"
+
+
+def _optional_env(name: str) -> str | None:
+    value = os.getenv(name)
+    if value is None or value == "":
+        return None
+    return value
+
+
+class Settings(BaseModel):
+    app_name: str = Field(
+        default_factory=lambda: os.getenv("APP_NAME", "DocSearch AI"),
+    )
+    app_env: str = Field(
+        default_factory=lambda: os.getenv("APP_ENV", "development"),
+    )
+    debug: bool = Field(
+        default_factory=lambda: _bool_env("DEBUG", False),
+    )
+    api_keys: str = Field(
+        default_factory=lambda: os.getenv(
+            "DOCSEARCH_API_KEYS",
+            DEFAULT_API_KEYS,
+        ),
+    )
+    auth_users: str = Field(
+        default_factory=lambda: os.getenv("DOCSEARCH_AUTH_USERS", DEFAULT_AUTH_USERS),
+    )
+    auth_user_backend: Literal["inmemory", "postgres"] = Field(
+        default_factory=lambda: os.getenv("AUTH_USER_BACKEND", "inmemory"),
+    )
+    auth_token_secret: str = Field(
+        default_factory=lambda: os.getenv("DOCSEARCH_AUTH_TOKEN_SECRET", "local-dev-secret"),
+    )
+    auth_token_ttl_seconds: int = Field(
+        default_factory=lambda: int(os.getenv("DOCSEARCH_AUTH_TOKEN_TTL_SECONDS", "86400")),
+        gt=0,
+    )
+    signup_default_workspace_id: str = Field(
+        default_factory=lambda: os.getenv(
+            "DOCSEARCH_SIGNUP_WORKSPACE_ID",
+            "local-workspace",
+        ),
+    )
+    signup_default_workspace_name: str = Field(
+        default_factory=lambda: os.getenv(
+            "DOCSEARCH_SIGNUP_WORKSPACE_NAME",
+            "Local Workspace",
+        ),
+    )
+    database_url: str = Field(
+        default_factory=lambda: os.getenv(
+            "DATABASE_URL",
+            "postgresql://docsearch:docsearch@postgres:5432/docsearch",
+        ),
+    )
+    minio_endpoint: str = Field(
+        default_factory=lambda: os.getenv("MINIO_ENDPOINT", "minio:9000"),
+    )
+    minio_access_key: str = Field(
+        default_factory=lambda: os.getenv("MINIO_ACCESS_KEY", "minio"),
+    )
+    minio_secret_key: str = Field(
+        default_factory=lambda: os.getenv("MINIO_SECRET_KEY", "minio123"),
+    )
+    minio_bucket: str = Field(
+        default_factory=lambda: os.getenv("MINIO_BUCKET", "documents"),
+    )
+    minio_secure: bool = Field(
+        default_factory=lambda: _bool_env("MINIO_SECURE", False),
+    )
+    redis_url: str = Field(
+        default_factory=lambda: os.getenv("REDIS_URL", "redis://redis:6379/0"),
+    )
+    indexing_queue_backend: str = Field(
+        default_factory=lambda: os.getenv("INDEXING_QUEUE_BACKEND", "inprocess"),
+    )
+    indexing_queue_redis_key: str = Field(
+        default_factory=lambda: os.getenv(
+            "INDEXING_QUEUE_REDIS_KEY",
+            "docsearch:indexing:queue",
+        ),
+    )
+    indexing_queue_max_attempts: int = Field(
+        default_factory=lambda: int(os.getenv("INDEXING_QUEUE_MAX_ATTEMPTS", "3")),
+        gt=0,
+    )
+    chunk_max_characters: int = Field(
+        default_factory=lambda: int(os.getenv("CHUNK_MAX_CHARACTERS", "1000")),
+    )
+    chunk_overlap_characters: int = Field(
+        default_factory=lambda: int(os.getenv("CHUNK_OVERLAP_CHARACTERS", "100")),
+    )
+    embedding_vector_size: int = Field(
+        default_factory=lambda: int(os.getenv("EMBEDDING_VECTOR_SIZE", "8")),
+    )
+    embedding_backend: Literal["deterministic", "bge"] = Field(
+        default_factory=lambda: os.getenv("EMBEDDING_BACKEND", "deterministic"),
+    )
+    embedding_base_url: str = Field(
+        default_factory=lambda: os.getenv(
+            "EMBEDDING_BASE_URL",
+            "http://embedding:8002/v1",
+        ),
+    )
+    embedding_model: str = Field(
+        default_factory=lambda: os.getenv("EMBEDDING_MODEL", "BAAI/bge-m3"),
+    )
+    embedding_api_key: str | None = Field(
+        default_factory=lambda: _optional_env("EMBEDDING_API_KEY"),
+    )
+    embedding_timeout_seconds: float = Field(
+        default_factory=lambda: float(os.getenv("EMBEDDING_TIMEOUT_SECONDS", "10.0")),
+        gt=0,
+    )
+    qdrant_url: str = Field(
+        default_factory=lambda: os.getenv("QDRANT_URL", "http://qdrant:6333"),
+    )
+    qdrant_collection: str = Field(
+        default_factory=lambda: os.getenv("QDRANT_COLLECTION", "docsearch_chunks"),
+    )
+    llm_base_url: str = Field(
+        default_factory=lambda: os.getenv("LLM_BASE_URL", "http://llm:8000/v1"),
+    )
+    llm_model: str = Field(
+        default_factory=lambda: os.getenv("LLM_MODEL", "google/gemma-4-E4B-it"),
+    )
+    llm_api_key: str | None = Field(
+        default_factory=lambda: _optional_env("LLM_API_KEY"),
+    )
+    llm_timeout_seconds: float = Field(
+        default_factory=lambda: float(os.getenv("LLM_TIMEOUT_SECONDS", "30.0")),
+    )
+    llm_max_tokens: int = Field(
+        default_factory=lambda: int(os.getenv("LLM_MAX_TOKENS", "1024")),
+    )
+    llm_temperature: float = Field(
+        default_factory=lambda: float(os.getenv("LLM_TEMPERATURE", "0.2")),
+    )
+    llm_max_retries: int = Field(
+        default_factory=lambda: int(os.getenv("LLM_MAX_RETRIES", "2")),
+        ge=0,
+    )
+    llm_retry_backoff_seconds: float = Field(
+        default_factory=lambda: float(os.getenv("LLM_RETRY_BACKOFF_SECONDS", "0.5")),
+        ge=0,
+    )
+    chat_retrieval_limit: int = Field(
+        default_factory=lambda: int(os.getenv("CHAT_RETRIEVAL_LIMIT", "5")),
+    )
+    chat_rerank_top_k: int = Field(
+        default_factory=lambda: int(os.getenv("CHAT_RERANK_TOP_K", "5")),
+    )
+    chat_min_relevance_score: float = Field(
+        default_factory=lambda: float(os.getenv("CHAT_MIN_RELEVANCE_SCORE", "0.2")),
+        ge=0,
+    )
+    retrieval_mode: Literal["dense", "hybrid"] = Field(
+        default_factory=lambda: os.getenv("RETRIEVAL_MODE", "dense"),
+    )
+    hybrid_dense_weight: float = Field(
+        default_factory=lambda: float(os.getenv("HYBRID_DENSE_WEIGHT", "0.7")),
+        ge=0,
+    )
+    hybrid_lexical_weight: float = Field(
+        default_factory=lambda: float(os.getenv("HYBRID_LEXICAL_WEIGHT", "0.3")),
+        ge=0,
+    )
+    hybrid_candidate_limit: int = Field(
+        default_factory=lambda: int(os.getenv("HYBRID_CANDIDATE_LIMIT", "50")),
+        gt=0,
+    )
+    reranker_backend: str = Field(
+        default_factory=lambda: os.getenv("RERANKER_BACKEND", "score"),
+    )
+    reranker_base_url: str = Field(
+        default_factory=lambda: os.getenv("RERANKER_BASE_URL", "http://reranker:8001/v1"),
+    )
+    reranker_model: str = Field(
+        default_factory=lambda: os.getenv("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3"),
+    )
+    reranker_api_key: str | None = Field(
+        default_factory=lambda: _optional_env("RERANKER_API_KEY"),
+    )
+    reranker_timeout_seconds: float = Field(
+        default_factory=lambda: float(os.getenv("RERANKER_TIMEOUT_SECONDS", "10.0")),
+    )
+    audit_log_backend: str = Field(
+        default_factory=lambda: os.getenv("AUDIT_LOG_BACKEND", "inmemory"),
+    )
+    document_metadata_backend: str = Field(
+        default_factory=lambda: os.getenv("DOCUMENT_METADATA_BACKEND", "inmemory"),
+    )
+    document_max_bytes: int = Field(
+        default_factory=lambda: int(os.getenv("DOCUMENT_MAX_BYTES", "10485760")),
+        gt=0,
+    )
+    dependency_health_checks_enabled: bool = Field(
+        default_factory=lambda: _bool_env(
+            "DEPENDENCY_HEALTH_CHECKS_ENABLED",
+            _is_production_env(),
+        ),
+    )
+    dependency_health_timeout_seconds: float = Field(
+        default_factory=lambda: float(
+            os.getenv("DEPENDENCY_HEALTH_TIMEOUT_SECONDS", "2.0"),
+        ),
+        gt=0,
+    )
+    rate_limit_enabled: bool = Field(
+        default_factory=lambda: _bool_env("RATE_LIMIT_ENABLED", _is_production_env()),
+    )
+    rate_limit_backend: Literal["memory", "redis"] = Field(
+        default_factory=lambda: os.getenv("RATE_LIMIT_BACKEND", "memory"),
+    )
+    rate_limit_requests: int = Field(
+        default_factory=lambda: int(os.getenv("RATE_LIMIT_REQUESTS", "120")),
+        gt=0,
+    )
+    rate_limit_window_seconds: int = Field(
+        default_factory=lambda: int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60")),
+        gt=0,
+    )
+    rate_limit_redis_prefix: str = Field(
+        default_factory=lambda: os.getenv(
+            "RATE_LIMIT_REDIS_PREFIX",
+            "docsearch:rate-limit",
+        ),
+    )
+    rate_limit_fail_open: bool = Field(
+        default_factory=lambda: _bool_env("RATE_LIMIT_FAIL_OPEN", True),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    return Settings()
