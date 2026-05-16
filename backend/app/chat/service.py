@@ -16,9 +16,11 @@ from backend.app.retrieval.qdrant_store import RetrievedChunk
 
 
 SYSTEM_PROMPT = (
-    "허용된 문서 컨텍스트만 사용해서 한국어로 답변하세요. "
+    "허용된 문서 컨텍스트만 사용해서 한국어로 답하세요. "
     "컨텍스트에 없는 내용은 모른다고 답하고, 답변에는 [1] 형식의 출처 번호를 포함하세요."
 )
+NO_ANSWER_MESSAGE = "모르겠습니다. 제공된 문서에서 답변 근거를 찾지 못했습니다."
+NO_ANSWER_MODEL = "grounding-policy"
 
 
 class Retriever(Protocol):
@@ -46,6 +48,7 @@ class ChatService:
         audit_log: AuditLogStore,
         retrieval_limit: int,
         rerank_top_k: int,
+        min_relevance_score: float = 0.2,
     ) -> None:
         self._retriever = retriever
         self._reranker = reranker
@@ -53,6 +56,7 @@ class ChatService:
         self._audit_log = audit_log
         self._retrieval_limit = retrieval_limit
         self._rerank_top_k = rerank_top_k
+        self._min_relevance_score = min_relevance_score
 
     def answer(
         self,
@@ -71,7 +75,12 @@ class ChatService:
             limit=retrieval_limit,
         )
         if not chunks:
-            raise ChatContextNotFoundError("질문에 사용할 수 있는 문서 컨텍스트가 없습니다.")
+            return self._no_answer(
+                workspace_context=workspace_context,
+                chat_request=chat_request,
+                retrieval_limit=retrieval_limit,
+                rerank_top_k=final_top_k,
+            )
 
         reranked_chunks = self._reranker.rerank(
             RerankRequest(
@@ -80,8 +89,17 @@ class ChatService:
                 top_k=final_top_k,
             )
         )
-        if not reranked_chunks:
-            raise ChatContextNotFoundError("질문에 사용할 수 있는 문서 컨텍스트가 없습니다.")
+        supported_chunks = _filter_supported_chunks(
+            reranked_chunks,
+            min_relevance_score=self._min_relevance_score,
+        )
+        if not supported_chunks:
+            return self._no_answer(
+                workspace_context=workspace_context,
+                chat_request=chat_request,
+                retrieval_limit=retrieval_limit,
+                rerank_top_k=final_top_k,
+            )
 
         llm_response = self._llm_client.generate(
             LLMRequest(
@@ -91,7 +109,7 @@ class ChatService:
                         role="user",
                         content=_build_user_prompt(
                             question=chat_request.question,
-                            chunks=[item.chunk for item in reranked_chunks],
+                            chunks=[item.chunk for item in supported_chunks],
                         ),
                     ),
                 ],
@@ -101,14 +119,56 @@ class ChatService:
         response = ChatResponse(
             answer=llm_response.content,
             model=llm_response.model,
-            citations=_build_citations(reranked_chunks),
+            citations=_build_citations(supported_chunks),
             usage=ChatUsage(
                 prompt_tokens=llm_response.prompt_tokens,
                 completion_tokens=llm_response.completion_tokens,
                 total_tokens=llm_response.total_tokens,
             ),
-            retrieved_chunk_count=len(reranked_chunks),
+            retrieved_chunk_count=len(supported_chunks),
         )
+        self._record_audit_event(
+            workspace_context=workspace_context,
+            chat_request=chat_request,
+            response=response,
+            retrieval_limit=retrieval_limit,
+            rerank_top_k=final_top_k,
+        )
+        return response
+
+    def _no_answer(
+        self,
+        *,
+        workspace_context: WorkspaceContext,
+        chat_request: ChatRequest,
+        retrieval_limit: int,
+        rerank_top_k: int,
+    ) -> ChatResponse:
+        response = ChatResponse(
+            answer=NO_ANSWER_MESSAGE,
+            model=NO_ANSWER_MODEL,
+            citations=[],
+            usage=ChatUsage(),
+            retrieved_chunk_count=0,
+        )
+        self._record_audit_event(
+            workspace_context=workspace_context,
+            chat_request=chat_request,
+            response=response,
+            retrieval_limit=retrieval_limit,
+            rerank_top_k=rerank_top_k,
+        )
+        return response
+
+    def _record_audit_event(
+        self,
+        *,
+        workspace_context: WorkspaceContext,
+        chat_request: ChatRequest,
+        response: ChatResponse,
+        retrieval_limit: int,
+        rerank_top_k: int,
+    ) -> None:
         self._audit_log.record_chat_event(
             ChatAuditEvent(
                 request_id=workspace_context.request_id,
@@ -117,7 +177,7 @@ class ChatService:
                 question=chat_request.question,
                 document_ids=chat_request.document_ids,
                 retrieval_limit=retrieval_limit,
-                rerank_top_k=final_top_k,
+                rerank_top_k=rerank_top_k,
                 retrieved_chunk_count=response.retrieved_chunk_count,
                 model=response.model,
                 answer_preview=_build_answer_preview(response.answer),
@@ -138,7 +198,6 @@ class ChatService:
                 ],
             )
         )
-        return response
 
 
 def _build_user_prompt(*, question: str, chunks: list[RetrievedChunk]) -> str:
@@ -149,7 +208,7 @@ def _build_user_prompt(*, question: str, chunks: list[RetrievedChunk]) -> str:
     return (
         f"질문:\n{question}\n\n"
         f"문서 컨텍스트:\n{context}\n\n"
-        "위 컨텍스트만 근거로 답변하고, 문장 끝에 관련 출처 번호를 붙이세요."
+        "위 컨텍스트만 근거로 답하고, 문장 끝에 관련 출처 번호를 붙이세요."
     )
 
 
@@ -166,6 +225,22 @@ def _build_citations(chunks: list[RerankedChunk]) -> list[ChatCitation]:
         )
         for index, item in enumerate(chunks, start=1)
     ]
+
+
+def _filter_supported_chunks(
+    chunks: list[RerankedChunk],
+    *,
+    min_relevance_score: float,
+) -> list[RerankedChunk]:
+    return [
+        item
+        for item in chunks
+        if _relevance_score(item) >= min_relevance_score
+    ]
+
+
+def _relevance_score(item: RerankedChunk) -> float:
+    return item.rerank_score if item.rerank_score is not None else item.chunk.score
 
 
 def _build_snippet(chunk_text: str) -> str:

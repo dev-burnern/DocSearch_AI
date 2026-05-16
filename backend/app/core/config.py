@@ -116,6 +116,10 @@ class Settings(BaseModel):
     chat_rerank_top_k: int = Field(
         default_factory=lambda: int(os.getenv("CHAT_RERANK_TOP_K", "5")),
     )
+    chat_min_relevance_score: float = Field(
+        default_factory=lambda: float(os.getenv("CHAT_MIN_RELEVANCE_SCORE", "0.2")),
+        ge=0,
+    )
     reranker_backend: str = Field(
         default_factory=lambda: os.getenv("RERANKER_BACKEND", "score"),
     )
