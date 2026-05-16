@@ -23,6 +23,7 @@ docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compo
 - hybrid search score blend 경계
 - OpenAI compatible `/chat/completions` 호출 경계
 - 검색, 채팅, citation, 감사 로그 화면 흐름
+- 사번 로그인과 문서 보안등급 접근 정책
 - 관리자 운영 상태에서 LLM과 embedding dependency check 확인
 
 ## 이 구성이 검증하지 않는 것
@@ -77,8 +78,9 @@ docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compo
 
 ## 빠른 확인 순서
 
-1. `http://localhost:8080`에서 `local-dev-key`를 입력합니다.
+1. `http://localhost:8080`에서 `2301029 / password`로 관리자 로그인합니다.
 2. 작은 `.txt` 파일을 업로드합니다.
-3. 문서 검색에서 업로드한 문서 내용으로 검색합니다.
-4. 채팅에서 같은 내용을 질문하고 출처가 표시되는지 확인합니다.
-5. 관리자 운영 상태에서 `llm`, `embedding`, `qdrant`, `minio` 상태가 ready인지 확인합니다.
+3. 문서 업로드 시 보안등급을 지정하고 업로드 결과를 확인합니다.
+4. 문서 검색에서 업로드한 문서 내용으로 검색합니다.
+5. 채팅에서 같은 내용을 질문하고 출처가 표시되는지 확인합니다.
+6. 관리자 운영 상태에서 `llm`, `embedding`, `qdrant`, `minio` 상태가 ready인지 확인합니다.
