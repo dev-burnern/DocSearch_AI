@@ -1,3 +1,4 @@
+import re
 from typing import Protocol
 
 from backend.app.audit.models import AuditCitation, ChatAuditEvent
@@ -119,7 +120,13 @@ class ChatService:
         response = ChatResponse(
             answer=llm_response.content,
             model=llm_response.model,
-            citations=_build_citations(supported_chunks),
+            citations=_build_citations(
+                supported_chunks,
+                citation_ids=_extract_citation_ids(
+                    llm_response.content,
+                    max_id=len(supported_chunks),
+                ),
+            ),
             usage=ChatUsage(
                 prompt_tokens=llm_response.prompt_tokens,
                 completion_tokens=llm_response.completion_tokens,
@@ -212,19 +219,41 @@ def _build_user_prompt(*, question: str, chunks: list[RetrievedChunk]) -> str:
     )
 
 
-def _build_citations(chunks: list[RerankedChunk]) -> list[ChatCitation]:
-    return [
-        ChatCitation(
-            citation_id=index,
-            document_id=item.chunk.document_id,
-            filename=item.chunk.filename,
-            chunk_index=item.chunk.chunk_index,
-            score=item.chunk.score,
-            rerank_score=item.rerank_score,
-            snippet=_build_snippet(item.chunk.chunk_text),
+def _build_citations(
+    chunks: list[RerankedChunk],
+    *,
+    citation_ids: list[int] | None = None,
+) -> list[ChatCitation]:
+    if citation_ids is None:
+        citation_ids = list(range(1, len(chunks) + 1))
+
+    citations: list[ChatCitation] = []
+    for citation_id in citation_ids:
+        item = chunks[citation_id - 1]
+        citations.append(
+            ChatCitation(
+                citation_id=citation_id,
+                document_id=item.chunk.document_id,
+                filename=item.chunk.filename,
+                chunk_index=item.chunk.chunk_index,
+                score=item.chunk.score,
+                rerank_score=item.rerank_score,
+                snippet=_build_snippet(item.chunk.chunk_text),
+            )
         )
-        for index, item in enumerate(chunks, start=1)
-    ]
+    return citations
+
+
+def _extract_citation_ids(answer: str, *, max_id: int) -> list[int]:
+    citation_ids: list[int] = []
+    seen: set[int] = set()
+    for match in re.finditer(r"\[(\d+)\]", answer):
+        citation_id = int(match.group(1))
+        if citation_id < 1 or citation_id > max_id or citation_id in seen:
+            continue
+        citation_ids.append(citation_id)
+        seen.add(citation_id)
+    return citation_ids
 
 
 def _filter_supported_chunks(

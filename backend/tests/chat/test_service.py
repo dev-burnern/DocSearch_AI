@@ -29,13 +29,18 @@ class FakeRetriever:
 
 
 class FakeLLMClient:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        content: str = "정책 문서 기준 답변입니다. [1]",
+    ) -> None:
+        self.content = content
         self.request: LLMRequest | None = None
 
     def generate(self, request: LLMRequest) -> LLMResponse:
         self.request = request
         return LLMResponse(
-            content="정책 문서 기준 답변입니다. [1]",
+            content=self.content,
             model="google/gemma-4-E4B-it",
             finish_reason="stop",
             prompt_tokens=20,
@@ -172,7 +177,7 @@ def test_chat_service_uses_reranker_order() -> None:
             score=0.7,
         ),
     ]
-    llm_client = FakeLLMClient()
+    llm_client = FakeLLMClient(content="두 문서를 모두 참고했습니다. [1] [2]")
     service = _service(
         retriever=FakeRetriever(chunks),
         reranker=FakeReranker(["doc-b", "doc-a"]),
@@ -195,6 +200,49 @@ def test_chat_service_uses_reranker_order() -> None:
         "doc-a",
     ]
     assert [citation.rerank_score for citation in response.citations] == [1.0, 0.9]
+
+
+def test_chat_service_returns_only_answer_referenced_citations() -> None:
+    chunks = [
+        _chunk(
+            document_id="doc-a",
+            filename="a.md",
+            chunk_index=0,
+            text="일반 보안 정책",
+            score=0.9,
+        ),
+        _chunk(
+            document_id="doc-b",
+            filename="b.md",
+            chunk_index=1,
+            text="API Key 권한 정책",
+            score=0.8,
+        ),
+    ]
+    audit_log = FakeAuditLog()
+    service = _service(
+        retriever=FakeRetriever(chunks),
+        reranker=FakeReranker(["doc-a", "doc-b"]),
+        llm_client=FakeLLMClient(
+            content="두 번째 근거만 답변에 사용합니다. [2] [2] [99] [0]"
+        ),
+        audit_log=audit_log,
+        retrieval_limit=5,
+        rerank_top_k=2,
+    )
+
+    response = service.answer(
+        workspace_context=_workspace_context(),
+        chat_request=ChatRequest(question="API Key 권한은?"),
+    )
+
+    assert response.retrieved_chunk_count == 2
+    assert [citation.citation_id for citation in response.citations] == [2]
+    assert [citation.document_id for citation in response.citations] == ["doc-b"]
+    assert [citation.citation_id for citation in audit_log.events[0].citations] == [2]
+    assert [citation.document_id for citation in audit_log.events[0].citations] == [
+        "doc-b"
+    ]
 
 
 def test_chat_service_filters_low_relevance_chunks() -> None:
