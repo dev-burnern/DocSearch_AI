@@ -181,6 +181,98 @@ def test_지원하지_않는_확장자는_거부한다(client: TestClient) -> No
     }
 
 
+def test_upload_normalizes_filename_and_content_type(
+    client: TestClient,
+    storage: InMemoryStorage,
+) -> None:
+    response = client.post(
+        "/v1/documents",
+        headers={"X-API-Key": "local-dev-key"},
+        files={"file": ("../memo.TXT", b"hello docsearch", "TEXT/PLAIN")},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["filename"] == "memo.TXT"
+    assert storage.saved[0]["filename"] == "memo.TXT"
+    assert storage.saved[0]["content_type"] == "text/plain"
+
+
+def test_upload_rejects_empty_documents(client: TestClient) -> None:
+    response = client.post(
+        "/v1/documents",
+        headers={"X-API-Key": "local-dev-key"},
+        files={"file": ("empty.txt", b" \n\t ", "text/plain")},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": {
+            "code": "DOCUMENT_EMPTY",
+            "message": "Document is empty after parsing.",
+        }
+    }
+
+
+def test_upload_rejects_corrupt_text_documents(client: TestClient) -> None:
+    response = client.post(
+        "/v1/documents",
+        headers={"X-API-Key": "local-dev-key"},
+        files={"file": ("broken.txt", b"\xff\xfe\xfd", "text/plain")},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": {
+            "code": "DOCUMENT_CORRUPT",
+            "message": "Document is not valid UTF-8.",
+        }
+    }
+
+
+def test_upload_rejects_large_documents(
+    monkeypatch: pytest.MonkeyPatch,
+    storage: InMemoryStorage,
+    document_store: InMemoryDocumentMetadataStore,
+) -> None:
+    monkeypatch.setenv(
+        "DOCSEARCH_API_KEYS",
+        "local-dev-key|workspace-alpha|Workspace Alpha",
+    )
+    monkeypatch.setenv("DOCUMENT_MAX_BYTES", "4")
+
+    from backend.app.documents.router import (
+        get_document_metadata_store,
+        get_qdrant_store,
+        get_storage_service,
+    )
+    from backend.app.retrieval.qdrant_store import QdrantVectorStore
+
+    app = create_app()
+    app.dependency_overrides[get_storage_service] = lambda: storage
+    app.dependency_overrides[get_document_metadata_store] = lambda: document_store
+    app.dependency_overrides[get_qdrant_store] = lambda: QdrantVectorStore(
+        client=QdrantClient(":memory:"),
+        collection_name="docsearch_chunks",
+        vector_size=8,
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/documents",
+        headers={"X-API-Key": "local-dev-key"},
+        files={"file": ("large.txt", b"hello", "text/plain")},
+    )
+
+    assert response.status_code == 413
+    assert response.json() == {
+        "detail": {
+            "code": "DOCUMENT_TOO_LARGE",
+            "message": "Document exceeds maximum size of 4 bytes.",
+        }
+    }
+    assert storage.saved == []
+
+
 class FailedJobQueue:
     def enqueue(self, job) -> JobDispatchResult:
         return JobDispatchResult(

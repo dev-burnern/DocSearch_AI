@@ -137,6 +137,10 @@ class Settings(BaseModel):
     document_metadata_backend: str = Field(
         default_factory=lambda: os.getenv("DOCUMENT_METADATA_BACKEND", "inmemory"),
     )
+    document_max_bytes: int = Field(
+        default_factory=lambda: int(os.getenv("DOCUMENT_MAX_BYTES", "10485760")),
+        gt=0,
+    )
     dependency_health_checks_enabled: bool = Field(
         default_factory=lambda: _bool_env(
             "DEPENDENCY_HEALTH_CHECKS_ENABLED",
