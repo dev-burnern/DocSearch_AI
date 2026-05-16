@@ -1,9 +1,7 @@
-import pytest
-
 from backend.app.audit.models import ChatAuditEvent
 from backend.app.auth.models import WorkspaceContext
 from backend.app.chat.models import ChatRequest
-from backend.app.chat.service import ChatContextNotFoundError, ChatService
+from backend.app.chat.service import ChatService
 from backend.app.llm.base import LLMRequest, LLMResponse
 from backend.app.reranking.base import RerankRequest, RerankedChunk
 from backend.app.retrieval.filters import RetrievalFilter
@@ -47,8 +45,14 @@ class FakeLLMClient:
 
 
 class FakeReranker:
-    def __init__(self, document_order: list[str]) -> None:
+    def __init__(
+        self,
+        document_order: list[str],
+        *,
+        rerank_scores: dict[str, float] | None = None,
+    ) -> None:
         self.document_order = document_order
+        self.rerank_scores = rerank_scores or {}
         self.request: RerankRequest | None = None
 
     def rerank(self, request: RerankRequest) -> list[RerankedChunk]:
@@ -57,7 +61,10 @@ class FakeReranker:
         return [
             RerankedChunk(
                 chunk=by_document_id[document_id],
-                rerank_score=1.0 - (index * 0.1),
+                rerank_score=self.rerank_scores.get(
+                    document_id,
+                    1.0 - (index * 0.1),
+                ),
             )
             for index, document_id in enumerate(self.document_order)
         ]
@@ -71,21 +78,19 @@ class FakeAuditLog:
         self.events.append(event)
 
 
-def test_채팅_서비스가_검색_결과로_답변과_출처를_반환한다() -> None:
-    chunk = RetrievedChunk(
-        workspace_id="workspace-alpha",
+def test_chat_service_answers_with_reranked_citations() -> None:
+    chunk = _chunk(
         document_id="doc-1",
         filename="policy.md",
-        parser="markdown",
         chunk_index=2,
-        chunk_text="내부 보안 정책은 API Key와 권한 필터를 요구한다.",
+        text="내부 보안 정책은 API Key와 권한 필터를 요구한다.",
         score=0.91,
     )
     retriever = FakeRetriever([chunk])
     reranker = FakeReranker(["doc-1"])
     llm_client = FakeLLMClient()
     audit_log = FakeAuditLog()
-    service = ChatService(
+    service = _service(
         retriever=retriever,
         reranker=reranker,
         llm_client=llm_client,
@@ -95,11 +100,7 @@ def test_채팅_서비스가_검색_결과로_답변과_출처를_반환한다()
     )
 
     response = service.answer(
-        workspace_context=WorkspaceContext(
-            request_id="request-1",
-            workspace_id="workspace-alpha",
-            workspace_name="Workspace Alpha",
-        ),
+        workspace_context=_workspace_context(),
         chat_request=ChatRequest(
             question="보안 정책 요약해줘",
             document_ids=["doc-1"],
@@ -132,7 +133,9 @@ def test_채팅_서비스가_검색_결과로_답변과_출처를_반환한다()
     assert response.citations[0].chunk_index == 2
     assert response.citations[0].score == 0.91
     assert response.citations[0].rerank_score == 1.0
-    assert response.citations[0].snippet == "내부 보안 정책은 API Key와 권한 필터를 요구한다."
+    assert response.citations[0].snippet == (
+        "내부 보안 정책은 API Key와 권한 필터를 요구한다."
+    )
 
     assert len(audit_log.events) == 1
     event = audit_log.events[0]
@@ -152,29 +155,25 @@ def test_채팅_서비스가_검색_결과로_답변과_출처를_반환한다()
     assert event.citations[0].rerank_score == 1.0
 
 
-def test_채팅_서비스가_리랭커_순서대로_컨텍스트와_출처를_구성한다() -> None:
+def test_chat_service_uses_reranker_order() -> None:
     chunks = [
-        RetrievedChunk(
-            workspace_id="workspace-alpha",
+        _chunk(
             document_id="doc-a",
             filename="a.md",
-            parser="markdown",
             chunk_index=0,
-            chunk_text="일반 보안 정책",
+            text="일반 보안 정책",
             score=0.9,
         ),
-        RetrievedChunk(
-            workspace_id="workspace-alpha",
+        _chunk(
             document_id="doc-b",
             filename="b.md",
-            parser="markdown",
             chunk_index=1,
-            chunk_text="API Key 권한 정책",
+            text="API Key 권한 정책",
             score=0.7,
         ),
     ]
     llm_client = FakeLLMClient()
-    service = ChatService(
+    service = _service(
         retriever=FakeRetriever(chunks),
         reranker=FakeReranker(["doc-b", "doc-a"]),
         llm_client=llm_client,
@@ -184,11 +183,7 @@ def test_채팅_서비스가_리랭커_순서대로_컨텍스트와_출처를_�
     )
 
     response = service.answer(
-        workspace_context=WorkspaceContext(
-            request_id="request-1",
-            workspace_id="workspace-alpha",
-            workspace_name="Workspace Alpha",
-        ),
+        workspace_context=_workspace_context(),
         chat_request=ChatRequest(question="API Key 권한은?"),
     )
 
@@ -202,22 +197,149 @@ def test_채팅_서비스가_리랭커_순서대로_컨텍스트와_출처를_�
     assert [citation.rerank_score for citation in response.citations] == [1.0, 0.9]
 
 
-def test_채팅_서비스는_검색_결과가_없으면_컨텍스트_오류를_낸다() -> None:
-    service = ChatService(
+def test_chat_service_filters_low_relevance_chunks() -> None:
+    chunks = [
+        _chunk(
+            document_id="doc-a",
+            filename="a.md",
+            chunk_index=0,
+            text="관련 없는 공지",
+            score=0.7,
+        ),
+        _chunk(
+            document_id="doc-b",
+            filename="b.md",
+            chunk_index=1,
+            text="API Key 권한 정책",
+            score=0.8,
+        ),
+    ]
+    llm_client = FakeLLMClient()
+    service = _service(
+        retriever=FakeRetriever(chunks),
+        reranker=FakeReranker(
+            ["doc-a", "doc-b"],
+            rerank_scores={"doc-a": 0.1, "doc-b": 0.8},
+        ),
+        llm_client=llm_client,
+        audit_log=FakeAuditLog(),
+        retrieval_limit=5,
+        rerank_top_k=2,
+        min_relevance_score=0.5,
+    )
+
+    response = service.answer(
+        workspace_context=_workspace_context(),
+        chat_request=ChatRequest(question="API Key 권한은?"),
+    )
+
+    assert llm_client.request is not None
+    user_prompt = llm_client.request.messages[1].content
+    assert "[1] b.md#1" in user_prompt
+    assert "관련 없는 공지" not in user_prompt
+    assert [citation.document_id for citation in response.citations] == ["doc-b"]
+    assert response.retrieved_chunk_count == 1
+
+
+def test_chat_service_returns_no_answer_without_chunks() -> None:
+    llm_client = FakeLLMClient()
+    audit_log = FakeAuditLog()
+    service = _service(
         retriever=FakeRetriever([]),
         reranker=FakeReranker([]),
-        llm_client=FakeLLMClient(),
-        audit_log=FakeAuditLog(),
+        llm_client=llm_client,
+        audit_log=audit_log,
         retrieval_limit=3,
         rerank_top_k=3,
     )
 
-    with pytest.raises(ChatContextNotFoundError):
-        service.answer(
-            workspace_context=WorkspaceContext(
-                request_id="request-1",
-                workspace_id="workspace-alpha",
-                workspace_name="Workspace Alpha",
-            ),
-            chat_request=ChatRequest(question="없는 문서 질문"),
-        )
+    response = service.answer(
+        workspace_context=_workspace_context(),
+        chat_request=ChatRequest(question="없는 문서 질문"),
+    )
+
+    assert llm_client.request is None
+    assert response.answer == "모르겠습니다. 제공된 문서에서 답변 근거를 찾지 못했습니다."
+    assert response.model == "grounding-policy"
+    assert response.citations == []
+    assert response.retrieved_chunk_count == 0
+    assert audit_log.events[0].model == "grounding-policy"
+    assert audit_log.events[0].citations == []
+
+
+def test_chat_service_returns_no_answer_when_relevance_is_too_low() -> None:
+    chunk = _chunk(
+        document_id="doc-1",
+        filename="policy.md",
+        chunk_index=0,
+        text="관련도가 낮은 문서",
+        score=0.1,
+    )
+    llm_client = FakeLLMClient()
+    service = _service(
+        retriever=FakeRetriever([chunk]),
+        reranker=FakeReranker(["doc-1"], rerank_scores={"doc-1": 0.1}),
+        llm_client=llm_client,
+        audit_log=FakeAuditLog(),
+        retrieval_limit=3,
+        rerank_top_k=3,
+        min_relevance_score=0.5,
+    )
+
+    response = service.answer(
+        workspace_context=_workspace_context(),
+        chat_request=ChatRequest(question="정책 알려줘"),
+    )
+
+    assert llm_client.request is None
+    assert response.answer == "모르겠습니다. 제공된 문서에서 답변 근거를 찾지 못했습니다."
+    assert response.citations == []
+    assert response.retrieved_chunk_count == 0
+
+
+def _service(
+    *,
+    retriever: FakeRetriever,
+    reranker: FakeReranker,
+    llm_client: FakeLLMClient,
+    audit_log: FakeAuditLog,
+    retrieval_limit: int,
+    rerank_top_k: int,
+    min_relevance_score: float = 0.2,
+) -> ChatService:
+    return ChatService(
+        retriever=retriever,
+        reranker=reranker,
+        llm_client=llm_client,
+        audit_log=audit_log,
+        retrieval_limit=retrieval_limit,
+        rerank_top_k=rerank_top_k,
+        min_relevance_score=min_relevance_score,
+    )
+
+
+def _workspace_context() -> WorkspaceContext:
+    return WorkspaceContext(
+        request_id="request-1",
+        workspace_id="workspace-alpha",
+        workspace_name="Workspace Alpha",
+    )
+
+
+def _chunk(
+    *,
+    document_id: str,
+    filename: str,
+    chunk_index: int,
+    text: str,
+    score: float,
+) -> RetrievedChunk:
+    return RetrievedChunk(
+        workspace_id="workspace-alpha",
+        document_id=document_id,
+        filename=filename,
+        parser="markdown",
+        chunk_index=chunk_index,
+        chunk_text=text,
+        score=score,
+    )
