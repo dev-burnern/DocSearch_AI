@@ -116,22 +116,33 @@ class ChatService:
                 ],
             )
         )
+        citation_ids = _extract_citation_ids(
+            llm_response.content,
+            max_id=len(supported_chunks),
+        )
+        usage = ChatUsage(
+            prompt_tokens=llm_response.prompt_tokens,
+            completion_tokens=llm_response.completion_tokens,
+            total_tokens=llm_response.total_tokens,
+        )
+        if not citation_ids:
+            return self._no_answer(
+                workspace_context=workspace_context,
+                chat_request=chat_request,
+                retrieval_limit=retrieval_limit,
+                rerank_top_k=final_top_k,
+                retrieved_chunk_count=len(supported_chunks),
+                usage=usage,
+            )
 
         response = ChatResponse(
             answer=llm_response.content,
             model=llm_response.model,
             citations=_build_citations(
                 supported_chunks,
-                citation_ids=_extract_citation_ids(
-                    llm_response.content,
-                    max_id=len(supported_chunks),
-                ),
+                citation_ids=citation_ids,
             ),
-            usage=ChatUsage(
-                prompt_tokens=llm_response.prompt_tokens,
-                completion_tokens=llm_response.completion_tokens,
-                total_tokens=llm_response.total_tokens,
-            ),
+            usage=usage,
             retrieved_chunk_count=len(supported_chunks),
         )
         self._record_audit_event(
@@ -150,13 +161,15 @@ class ChatService:
         chat_request: ChatRequest,
         retrieval_limit: int,
         rerank_top_k: int,
+        retrieved_chunk_count: int = 0,
+        usage: ChatUsage | None = None,
     ) -> ChatResponse:
         response = ChatResponse(
             answer=NO_ANSWER_MESSAGE,
             model=NO_ANSWER_MODEL,
             citations=[],
-            usage=ChatUsage(),
-            retrieved_chunk_count=0,
+            usage=usage or ChatUsage(),
+            retrieved_chunk_count=retrieved_chunk_count,
         )
         self._record_audit_event(
             workspace_context=workspace_context,

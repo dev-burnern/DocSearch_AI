@@ -245,6 +245,52 @@ def test_chat_service_returns_only_answer_referenced_citations() -> None:
     ]
 
 
+def test_chat_service_returns_no_answer_when_llm_has_no_valid_citations() -> None:
+    chunks = [
+        _chunk(
+            document_id="doc-a",
+            filename="a.md",
+            chunk_index=0,
+            text="일반 보안 정책",
+            score=0.9,
+        ),
+        _chunk(
+            document_id="doc-b",
+            filename="b.md",
+            chunk_index=1,
+            text="API Key 권한 정책",
+            score=0.8,
+        ),
+    ]
+    audit_log = FakeAuditLog()
+    service = _service(
+        retriever=FakeRetriever(chunks),
+        reranker=FakeReranker(["doc-a", "doc-b"]),
+        llm_client=FakeLLMClient(content="근거 번호 없이 답변합니다. [99] [0]"),
+        audit_log=audit_log,
+        retrieval_limit=5,
+        rerank_top_k=2,
+    )
+
+    response = service.answer(
+        workspace_context=_workspace_context(),
+        chat_request=ChatRequest(question="API Key 권한은?"),
+    )
+
+    assert response.answer == "모르겠습니다. 제공된 문서에서 답변 근거를 찾지 못했습니다."
+    assert response.model == "grounding-policy"
+    assert response.citations == []
+    assert response.retrieved_chunk_count == 2
+    assert response.usage.total_tokens == 28
+    assert audit_log.events[0].model == "grounding-policy"
+    assert audit_log.events[0].answer_preview == (
+        "모르겠습니다. 제공된 문서에서 답변 근거를 찾지 못했습니다."
+    )
+    assert audit_log.events[0].retrieved_chunk_count == 2
+    assert audit_log.events[0].total_tokens == 28
+    assert audit_log.events[0].citations == []
+
+
 def test_chat_service_filters_low_relevance_chunks() -> None:
     chunks = [
         _chunk(
