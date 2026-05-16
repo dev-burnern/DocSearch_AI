@@ -63,6 +63,13 @@ docker compose -f infra/compose/docker-compose.yml up --build
 
 관리자 역할 API Key로 운영 상태 화면에 접근할 수 있습니다. 운영 상태 화면은 `/v1/admin/operations`를 통해 readiness 결과, 외부 의존성 점검 목록, rate limit과 백엔드 설정 요약을 표시합니다. API Key, DB URL, MinIO Secret, LLM API Key 같은 민감 설정은 응답에 포함하지 않습니다.
 
+## 주요 문서
+
+- [노트북 로컬 테스트 가이드](docs/notebook-local-test.md)
+- [LLM 운영 가이드](docs/llm-operations.md)
+- [테스트 및 성능 기준표](docs/test-performance-baseline.md)
+- [개발 워크플로우](docs/development-workflow.md)
+
 ## 현재 범위
 
 현재 기준선에는 서비스 경계, 상태 확인 엔드포인트, 운영 준비 상태 진단, 외부 의존성 상태 점검, 기본 보안 응답 헤더, Redis 기반 분산 rate limit, 관리자 운영 상태 API와 화면, 로컬 실행 설정, CI, API Key 기반 워크스페이스/관리자 역할 인증, 문서 업로드, 문서 메타데이터 저장소와 목록 조회 API, 문서 삭제/재인덱싱 API, 개발용 인프로세스 인덱싱 큐, 청킹과 임베딩 파이프라인, Qdrant 기반 Dense retrieval, 워크스페이스 메타데이터 필터, 검색 API, BGE 호환 리랭커 경계, vLLM/OpenAI 호환 LLM 게이트웨이, 출처 포함 채팅 API, PostgreSQL 감사 로그 저장소, 관리자 전용 감사 로그 조회 필터와 CSV 내보내기, 프론트엔드 채팅 플로우, 관리자 역할 기반 화면 표시 조건, 감사 로그 조회/내보내기 화면, 문서 업로드/목록/검색/삭제/재인덱싱 화면이 포함되어 있습니다.
