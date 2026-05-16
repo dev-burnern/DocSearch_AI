@@ -2,10 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.app.auth.dependencies import require_workspace_context
 from backend.app.auth.models import WorkspaceContext
-from backend.app.documents.router import get_embedder, get_qdrant_store
+from backend.app.core.config import Settings
+from backend.app.documents.router import (
+    get_embedder,
+    get_qdrant_store,
+    get_runtime_settings,
+)
 from backend.app.indexing.embedder import EmbeddingProviderError
 from backend.app.retrieval.filters import RetrievalFilter
-from backend.app.retrieval.retriever import DenseRetriever
+from backend.app.retrieval.retriever import Retriever, build_retriever
 from backend.app.search.models import SearchRequest, SearchResponse, SearchResultChunk
 
 
@@ -15,15 +20,20 @@ router = APIRouter(prefix="/v1/search", tags=["search"])
 def get_search_retriever(
     embedder=Depends(get_embedder),
     vector_store=Depends(get_qdrant_store),
-) -> DenseRetriever:
-    return DenseRetriever(embedder=embedder, vector_store=vector_store)
+    settings: Settings = Depends(get_runtime_settings),
+) -> Retriever:
+    return build_retriever(
+        settings=settings,
+        embedder=embedder,
+        vector_store=vector_store,
+    )
 
 
 @router.post("", response_model=SearchResponse)
 async def search_documents(
     search_request: SearchRequest,
     workspace_context: WorkspaceContext = Depends(require_workspace_context),
-    retriever: DenseRetriever = Depends(get_search_retriever),
+    retriever: Retriever = Depends(get_search_retriever),
 ) -> SearchResponse:
     try:
         chunks = retriever.retrieve(

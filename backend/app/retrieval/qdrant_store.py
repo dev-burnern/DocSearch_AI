@@ -96,6 +96,33 @@ class QdrantVectorStore:
             for point in points
         ]
 
+    def list_chunks(
+        self,
+        *,
+        filters: RetrievalFilter,
+        limit: int,
+    ) -> list[RetrievedChunk]:
+        records, _ = self._client.scroll(
+            collection_name=self._collection_name,
+            scroll_filter=build_qdrant_filter(filters),
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+
+        return [
+            RetrievedChunk(
+                workspace_id=str(record.payload["workspace_id"]),
+                document_id=str(record.payload["document_id"]),
+                filename=str(record.payload["filename"]),
+                parser=str(record.payload["parser"]),
+                chunk_index=int(record.payload["chunk_index"]),
+                chunk_text=str(record.payload["chunk_text"]),
+                score=0.0,
+            )
+            for record in records
+        ]
+
     def delete_document(
         self,
         *,

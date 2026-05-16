@@ -147,6 +147,21 @@ class Settings(BaseModel):
         default_factory=lambda: float(os.getenv("CHAT_MIN_RELEVANCE_SCORE", "0.2")),
         ge=0,
     )
+    retrieval_mode: Literal["dense", "hybrid"] = Field(
+        default_factory=lambda: os.getenv("RETRIEVAL_MODE", "dense"),
+    )
+    hybrid_dense_weight: float = Field(
+        default_factory=lambda: float(os.getenv("HYBRID_DENSE_WEIGHT", "0.7")),
+        ge=0,
+    )
+    hybrid_lexical_weight: float = Field(
+        default_factory=lambda: float(os.getenv("HYBRID_LEXICAL_WEIGHT", "0.3")),
+        ge=0,
+    )
+    hybrid_candidate_limit: int = Field(
+        default_factory=lambda: int(os.getenv("HYBRID_CANDIDATE_LIMIT", "50")),
+        gt=0,
+    )
     reranker_backend: str = Field(
         default_factory=lambda: os.getenv("RERANKER_BACKEND", "score"),
     )
