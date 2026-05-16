@@ -46,6 +46,35 @@ EMBEDDING_TIMEOUT_SECONDS=10.0
 
 `EMBEDDING_VECTOR_SIZE`는 Qdrant collection 크기와 맞아야 합니다. deterministic 8차원으로 만든 collection을 BGE-M3 1024차원으로 재사용하면 upsert나 검색이 실패할 수 있으므로, 모델을 바꿀 때는 collection을 비우거나 새 collection 이름을 사용합니다.
 
+## 포트폴리오 화면용 host LLM 연결
+
+Ollama 또는 LM Studio처럼 Windows 호스트에서 OpenAI compatible local server를 실행하면, Docker 안의 API만 해당 서버를 바라보게 바꿀 수 있습니다. 이 구성은 embedding stub은 그대로 두고 채팅 LLM만 실제 모델로 바꾸므로 기존 Qdrant collection을 다시 만들 필요가 없습니다.
+
+Ollama 기본 서버를 사용할 때:
+
+```powershell
+$env:LOCAL_LLM_BASE_URL = "http://host.docker.internal:11434/v1"
+$env:LOCAL_LLM_MODEL = "gemma3:4b"
+$env:LOCAL_LLM_TIMEOUT_SECONDS = "180.0"
+$env:LOCAL_LLM_MAX_TOKENS = "384"
+$env:LOCAL_LLM_TEMPERATURE = "0.0"
+$env:LOCAL_CHAT_RETRIEVAL_LIMIT = "3"
+$env:LOCAL_CHAT_RERANK_TOP_K = "1"
+docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.notebook.yml -f infra/compose/docker-compose.host-llm.yml up --build -d api gateway
+docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.notebook.yml -f infra/compose/docker-compose.host-llm.yml restart gateway
+```
+
+포트폴리오 화면을 빠르게 확인할 때는 채팅 화면의 `검색 개수`를 `1`로 낮춰 테스트합니다. `gemma3:4b` CPU 모드는 `검색 개수 1`에서는 짧은 답변 확인이 가능하지만, `검색 개수 5`는 컨텍스트가 길어져 응답이 1분 이상 걸릴 수 있습니다.
+
+LM Studio 기본 서버를 사용할 때:
+
+```powershell
+$env:LOCAL_LLM_BASE_URL = "http://host.docker.internal:1234/v1"
+$env:LOCAL_LLM_MODEL = "<LM Studio에서 로드한 모델 ID>"
+docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.notebook.yml -f infra/compose/docker-compose.host-llm.yml up --build -d api gateway
+docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.notebook.yml -f infra/compose/docker-compose.host-llm.yml restart gateway
+```
+
 ## 빠른 확인 순서
 
 1. `http://localhost:8080`에서 `local-dev-key`를 입력합니다.
